@@ -7,6 +7,11 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from came.analytics.diagnostics import (
+    correlation_diagnostics,
+    residual_descriptive,
+    residual_diagnostics,
+)
 from came.errors import DataQualityError, ModelError
 
 
@@ -18,6 +23,13 @@ class SarimaResult:
     residuals: pd.DataFrame
     aic: float
     bic: float
+    hqic: float = np.nan
+    summary_text: str = ""
+    diagnostics: pd.DataFrame = field(default_factory=pd.DataFrame)
+    residual_descriptive: pd.DataFrame = field(default_factory=pd.DataFrame)
+    acf: pd.DataFrame = field(default_factory=pd.DataFrame)
+    pacf: pd.DataFrame = field(default_factory=pd.DataFrame)
+    converged: bool | None = None
 
 
 @dataclass
@@ -37,6 +49,7 @@ def fit_sarima(
     order: tuple[int, int, int] = (1, 1, 1),
     seasonal_order: tuple[int, int, int, int] = (0, 1, 1, 12),
     horizon: int = 12,
+    diagnostic_lags: int | None = None,
 ) -> SarimaResult:
     from statsmodels.tsa.statespace.sarimax import SARIMAX
 
@@ -81,6 +94,13 @@ def fit_sarima(
         index=values.index,
     )
     fitted = residuals[["observado", "estimado"]].copy()
+    clean_residuals = residuals["residual"].replace([np.inf, -np.inf], np.nan).dropna()
+    acf_frame, pacf_frame, _ = correlation_diagnostics(clean_residuals, diagnostic_lags)
+    converged = None
+    try:
+        converged = bool(model.mle_retvals.get("converged"))
+    except (AttributeError, TypeError):
+        pass
     return SarimaResult(
         fitted_model=model,
         fitted=fitted,
@@ -88,6 +108,13 @@ def fit_sarima(
         residuals=residuals,
         aic=float(model.aic),
         bic=float(model.bic),
+        hqic=float(model.hqic),
+        summary_text=model.summary().as_text(),
+        diagnostics=residual_diagnostics(clean_residuals, ljung_box_lag=diagnostic_lags),
+        residual_descriptive=residual_descriptive(clean_residuals),
+        acf=acf_frame,
+        pacf=pacf_frame,
+        converged=converged,
     )
 
 

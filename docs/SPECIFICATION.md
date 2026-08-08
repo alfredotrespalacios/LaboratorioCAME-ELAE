@@ -1,4 +1,4 @@
-# Laboratorio CAME — especificación funcional v1.3
+# Laboratorio CAME — especificación funcional v1.4
 
 Fecha de consolidación: 8 de agosto de 2026.
 
@@ -33,7 +33,7 @@ es personal y que su uso está autorizado únicamente a los participantes durant
 
 La base integrada incluye la variable calculada:
 
-`Generación no hidráulica (GWh-día) = Demanda nacional (GWh-día) - Generación hidráulica (GWh-día)`.
+`Generación no hidráulica (GWh-día) = Generación nacional (GWh-día) - Generación hidráulica (GWh-día)`.
 
 Precio y Demanda mensual abren automáticamente el paquete precargado. La consulta directa a XM es
 opcional y se usa para información diaria o contrastes. Precio muestra variación porcentual y

@@ -6,7 +6,11 @@
 | XM `DemaSIN/Sistema` | Demanda nacional | kWh | Conversión a GWh; suma por periodo; GWh-día mensual |
 | XM `Gene/Recurso` | Generación | kWh | Conversión a GWh; suma por recurso y tecnología |
 | XM `CapEfecNeta/Recurso` | Capacidad | kW | Conversión a MW; última publicación no posterior a la fecha elegida |
-| XM `PrecOferDesp/Recurso` | Ofertas | COP/kWh | Percentiles por tecnología; P5/P50 como valores iniciales editables |
+| XM `PrecOferDesp/Recurso` | Ofertas | COP/kWh | Promedio simple y promedio ponderado por capacidad efectiva para gas y carbón |
+| XM catálogo vivo · MC | Índice MC | COP/kWh | Promedio mensual; separado de contratos regulados/no regulados |
+| XM `PrecPromContRegu` y `PrecPromContNoRegu` | Contratos | COP/kWh | Promedio mensual por segmento |
+| XM `AporEner/Sistema` | Aportes hídricos | GWh | Suma mensual y promedio por día calendario |
+| XM `RestSinAliv/Sistema` | Restricciones | COP | Suma mensual |
 | XM demanda no atendida | Interrupciones | kWh | Área como total; subárea solo como verificación si ambas existen |
 | REData | Demanda, balance, generación, potencia e intercambios | Publicada por indicador | Se conserva la agregación solicitada a la API |
 | OMIE `marginalpdbc` | Precio mercado diario | EUR/MWh | Parser de 24/25 horas y 92/96/100 cuartos de hora |
@@ -18,7 +22,7 @@
 
 ## Fórmulas explícitas
 
-- Generación no hidráulica (GWh-día) = demanda nacional − generación hidráulica.
+- Generación no hidráulica (GWh-día) = generación nacional − generación hidráulica.
 - Generación disponible (GWh-día) = CEN (MW) × factor de planta × 24 / 1.000.
 - Margen energético = generación disponible / demanda − 1.
 - Precio chileno = suma(precio por barra × demanda por barra) / suma(demanda por barra).
@@ -30,7 +34,8 @@ los valores ausentes quedan como `NaN` visibles.
 ## Paquetes mensuales
 
 - Colombia integra XM, TRM y ONI; `Gene/Recurso` se descarga una sola vez por bloques de 14 días.
-- De esa descarga se derivan y concilian generación por recurso, empresa, tecnología y sistema.
+- De esa descarga se derivan y concilian generación nacional, prioridades por recurso y empresa y
+  agregados tecnológicos. La asociación empresarial usa vigencias oficiales cuando están presentes.
 - España integra REData mensual y promedios mensuales del precio diario OMIE.
 - Chile exige exportaciones oficiales de costos marginales, demanda por barra y generación por
   tecnología; el precio mensual se pondera por demanda.

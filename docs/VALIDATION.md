@@ -1,14 +1,16 @@
-# Informe de validación v1.3.2
+# Informe de validación v1.4.0
 
 Fecha: 8 de agosto de 2026.
 
 ## Resultado
 
 - Lint: `ruff check .` sin hallazgos.
-- Pruebas locales: 60 aprobadas; 3 contratos externos excluidos del chequeo local.
-- Contratos vivos: REData y OMIE aprobados; XM respondió 502 después de agotar reintentos. Los tres
-  contratos habían sido aprobados en la validación v1.1.0.
+- Pruebas locales: 71 aprobadas; 3 contratos externos excluidos del chequeo local.
+- Contratos vivos: se mantienen separados del cierre reproducible porque dependen de servicios
+  externos; ejecútelos con `make live-check` antes y después de desplegar.
 - Smoke de Streamlit: página inicial cargada sin excepciones en modo local.
+- Páginas críticas: Modelación, Portafolios, Base integrada y Mantenimiento arrancaron de forma
+  independiente sin excepciones.
 - Introducción: primera página del menú, anterior a Colombia, con propiedad, alcance y guía de uso.
 - Casos de estudio: módulos 14–18 renombrados en navegación y páginas.
 - Compilación: todos los módulos Python compilados.
@@ -36,6 +38,12 @@ Fecha: 8 de agosto de 2026.
   escritura si la carpeta desaparece exactamente durante la operación.
 - Compatibilidad Streamlit 1.61: se sustituyó `use_container_width` por `width`, sin advertencias
   de la API durante el smoke local.
+- Modelación supervisada: transformaciones por variable, ajuste con 100 %, importancias de Random
+  Forest, pronóstico recursivo e intervalos OLS validados con datos sintéticos.
+- Series temporales: validación cronológica, MASE, origen móvil, diagnósticos ACF/PACF y reporte
+  Statsmodels disponibles en pantalla y exportaciones.
+- Portafolios: diez porcentajes contratados y cinco escenarios de correlación o precio producen 50
+  combinaciones comparables con la misma semilla; M-CVaR está incluido.
 
 ## Contraste con los Excel entregados
 
@@ -65,13 +73,6 @@ La aplicación reestima los coeficientes polinómicos y exponenciales con precis
 de la tabla editada; no copia los coeficientes redondeados escritos en el Excel. También evita
 extrapolar un precio de equilibrio cuando la oferta total es inferior a la demanda.
 
-## Consultas guiadas reales
-
-Con datos XM de julio/agosto de 2026 respondieron precio, demanda, generación por tecnología,
-capacidad efectiva, ofertas, demanda no atendida y base integrada. La publicación de capacidad más
-reciente no posterior al 6 de agosto fue la del 5 de agosto, condición que el módulo muestra al
-usuario.
-
 ## Limitación externa conocida
 
 El Coordinador de Chile publica sus exploradores sobre Qlik/Cloudflare. La descarga automatizada no
@@ -79,6 +80,6 @@ es estable sin una URL administrada. El módulo procesa exportaciones oficiales 
 demanda y generación; las pruebas validan los parsers y la ponderación. No afirma disponibilidad
 automática inexistente.
 
-La carga histórica completa no se ejecutó en este contenedor porque la fuente XM no está incluida
-en la lista de dominios de red disponibles. La aplicación deja visible el avance, guarda bloques
-temporales y solo habilita el ZIP cuando todas las fuentes terminan sin errores.
+La carga histórica completa no forma parte del chequeo local. La aplicación deja visible el avance,
+guarda bloques temporales y solo habilita el ZIP cuando las series esenciales y las fases de
+publicación terminan sin errores bloqueantes.

@@ -16,6 +16,10 @@ def page_introduction() -> None:
         "del análisis de mercados eléctricos. Reúne datos oficiales, visualizaciones, "
         "modelación, casos de estudio y herramientas para preparar informes ejecutivos."
     )
+    st.write(
+        "Los cursos CAME son dirigidos por **Alfredo Trespalacios** y articulan la explicación "
+        "conceptual con ejercicios reproducibles para conocer, modelar y decidir con información."
+    )
 
     st.info(
         "Esta aplicación es propiedad de ELAE. Su uso está autorizado únicamente a los "
@@ -44,7 +48,7 @@ def page_introduction() -> None:
             {
                 "Sección": "Estructuración de portafolios",
                 "Contenido": "Módulo 13",
-                "Propósito": "Simular portafolios de generación mediante Monte Carlo.",
+                "Propósito": "Calcular rápidamente portafolios y sensibilidades mediante Monte Carlo.",
             },
             {
                 "Sección": "Casos de estudio",

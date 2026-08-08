@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import pandas as pd
@@ -56,7 +56,7 @@ class SeriesMeta:
     timezone: str | None = None
     methodology: str = ""
     source_url: str | None = None
-    retrieved_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    retrieved_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 @dataclass

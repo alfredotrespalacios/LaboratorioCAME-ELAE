@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date
 
 import pandas as pd
 import streamlit as st
 
+from came.data.colombia_selection import DEFAULT_SELECTION, selection_catalog
 from came.data.maintenance import (
     BuildResult,
     ChileMonthlyBuilder,
     ColombiaMonthlyBuilder,
     ProgressEvent,
     SpainMonthlyBuilder,
+    XMMonthlyTask,
 )
 from came.data.monthly_store import (
     LONG_COLUMNS,
@@ -27,6 +30,7 @@ from came.data.monthly_store import (
     load_stored_monthly_package,
     merge_monthly_data,
 )
+from came.data.providers.xm import XMProvider
 
 OPERATION_UPDATE = "Agregar meses faltantes"
 OPERATION_BUILD = "Construir la primera base"
@@ -373,7 +377,97 @@ def _colombia_section(timeout: int) -> None:
     period = _period_controls(
         "COL", operation, existing, default_start=date(2000, 1, 1), key="maintenance_col"
     )
-    st.caption("La construcción completa incluye XM, TRM y ONI automáticamente.")
+    st.subheader("Variables que se incorporarán")
+    catalog = selection_catalog()
+    labels = {
+        row.Clave: f"{row.Grupo} · {row.Variable} · {row.Fuente}"
+        for row in catalog.itertuples()
+    }
+    required = set(catalog.loc[catalog["Obligatoria"], "Clave"].astype(str))
+    selected = set(
+        st.multiselect(
+            "Canasta CAME preseleccionada",
+            list(labels),
+            default=[key for key in labels if key in DEFAULT_SELECTION],
+            format_func=lambda value: labels[value],
+            key="maintenance_col_selection",
+        )
+    )
+    selected.update(required)
+    st.caption(
+        "Demanda, precio de bolsa y generación nacional son obligatorias. Las demás series "
+        "pueden tener coberturas históricas diferentes y no bloquearán el paquete."
+    )
+    st.dataframe(
+        catalog.assign(Seleccionada=catalog["Clave"].isin(selected)),
+        hide_index=True,
+        width="stretch",
+    )
+
+    with st.expander("Catálogo avanzado: todas las variables publicadas por XM"):
+        st.write(
+            "Consulte el catálogo vivo y seleccione métricas adicionales. Estas quedan inicialmente "
+            "desmarcadas y se agregan con una regla mensual explícita."
+        )
+        if st.button("Consultar catálogo vivo de XM", key="maintenance_xm_catalog_load"):
+            try:
+                st.session_state["maintenance_xm_catalog"] = XMProvider(timeout=timeout).catalog()
+            except Exception as exc:
+                st.error(f"XM no pudo entregar el catálogo en este momento: {exc}")
+        live_catalog = st.session_state.get("maintenance_xm_catalog")
+        selected_live: list[str] = []
+        if isinstance(live_catalog, pd.DataFrame) and not live_catalog.empty:
+            columns = [
+                column
+                for column in ("MetricId", "MetricName", "Entity", "Type", "MetricUnits", "MaxDays")
+                if column in live_catalog
+            ]
+            st.dataframe(live_catalog[columns], hide_index=True, width="stretch")
+            live_catalog = live_catalog.copy()
+            live_catalog["_key"] = (
+                live_catalog["MetricId"].astype(str) + "|" + live_catalog["Entity"].astype(str)
+            )
+            live_labels = {
+                str(row["_key"]): (
+                    f"{row.get('MetricName', row['MetricId'])} · "
+                    f"{row['MetricId']}/{row['Entity']} · {row.get('MetricUnits', '')}"
+                )
+                for _, row in live_catalog.iterrows()
+            }
+            selected_live = st.multiselect(
+                "Variables XM adicionales",
+                list(live_labels),
+                default=[],
+                format_func=lambda value: live_labels[value],
+                key="maintenance_xm_extra_selection",
+            )
+    extra_tasks: list[XMMonthlyTask] = []
+    live_catalog = st.session_state.get("maintenance_xm_catalog")
+    if isinstance(live_catalog, pd.DataFrame) and not live_catalog.empty:
+        live_catalog = live_catalog.copy()
+        live_catalog["_key"] = live_catalog["MetricId"].astype(str) + "|" + live_catalog["Entity"].astype(str)
+        for selected_key in selected_live:
+            row = live_catalog[live_catalog["_key"].eq(selected_key)].iloc[0]
+            metric = str(row["MetricId"])
+            entity = str(row["Entity"])
+            unit = str(row.get("MetricUnits") or "Unidad XM")
+            slug = re.sub(r"[^a-z0-9]+", "_", (metric + "_" + entity).casefold()).strip("_")
+            aggregation_mode = "sum" if unit in {"kWh", "MWh", "GWh"} else "mean"
+            extra_tasks.append(
+                XMMonthlyTask(
+                    metric,
+                    entity,
+                    f"col_xm_catalogo_{slug}",
+                    str(row.get("MetricName") or metric),
+                    str(row.get("MetricName") or metric),
+                    unit,
+                    None,
+                    "Suma mensual" if aggregation_mode == "sum" else "Promedio simple mensual",
+                    aggregation_mode,
+                    "Catálogo XM",
+                )
+            )
+    st.caption("La construcción usa las fuentes seleccionadas de XM, TRM y ONI según la canasta anterior.")
     confirm = st.checkbox(
         "Entiendo que la operación puede tardar y mantendré abierta esta pestaña.",
         key="maintenance_col_confirm",
@@ -410,6 +504,8 @@ def _colombia_section(timeout: int) -> None:
                 replace_start=replace_start,
                 replace_end=replace_end,
                 include_macro=True,
+                selected_options=selected,
+                extra_tasks=extra_tasks,
                 callback=_progress_callback(progress),
             )
         package = _create_download_package(
@@ -419,7 +515,8 @@ def _colombia_section(timeout: int) -> None:
             additional_sheets=_additional_sheets(result),
             build_notes=[
                 f"Operación: {operation}.",
-                "La asociación histórica recurso–empresa corresponde al catálogo XM usado en la consulta.",
+                "La asociación recurso–empresa se conserva por mes; el catálogo documenta los cambios observados y las empresas involucradas.",
+                "Variables seleccionadas: " + ", ".join(sorted(selected)) + ".",
             ],
         )
         st.session_state["maintenance_col_result"] = _result_for_session(result, package)

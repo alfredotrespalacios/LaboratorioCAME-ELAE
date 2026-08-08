@@ -4,7 +4,7 @@ Aplicación académica de ELAE para consultar, analizar y modelar mercados eléc
 construida con Streamlit y Plotly, usa fuentes oficiales abiertas y mantiene visibles las unidades,
 supuestos, coberturas y limitaciones de cada resultado.
 
-La entrega contiene una introducción de uso, los 19 módulos acordados, exportaciones Excel/PDF,
+La versión 1.4.0 contiene una introducción de uso, los 19 módulos acordados, exportaciones Excel/PDF,
 canasta manual para informe ejecutivo, acceso por contraseña, pruebas numéricas contra los Excel
 pedagógicos y un sistema mensual versionable que no requiere una base de datos externa.
 
@@ -15,8 +15,8 @@ pedagógicos y un sistema mensual versionable que no requiere una base de datos 
 | Inicio | Introducción, mapa de módulos, ruta recomendada y condiciones de uso |
 | Colombia | 1. Precio de bolsa · 2. Demanda nacional · 3. Generación por tecnología · 4. Generación por recurso/empresa · 5. Explorador XM · 6. Base integrada · 7. Balance energético · 8. Curva de oferta |
 | Otros mercados | 9. España (REData y OMIE) · 10. Chile (archivos oficiales validados) |
-| Análisis y modelación | 11. Supervisados, ingenuo, ARIMA y SARIMA · 12. SARIMA–GARCH |
-| Portafolios | 13. Monte Carlo de generación, precio y contratación, con VaR/CVaR |
+| Análisis y modelación | 11. Supervisados, ingenuo, ARIMA y SARIMA con transformaciones, diagnósticos y pronóstico · 12. SARIMA–GARCH |
+| Portafolios | 13. Cálculo rápido Monte Carlo y sensibilidades de contratación, correlación y precio, con VaR/CVaR/M-CVaR |
 | Casos de estudio | 14–18. Espacios “Próximamente disponible”, sin contenido inventado |
 | Informe | 19. Canasta y generador de prompt ejecutivo TXT |
 

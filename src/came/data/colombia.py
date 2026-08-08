@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
 
 from came.analytics.aggregation import (
@@ -64,6 +65,7 @@ def resource_catalog(provider: XMProvider) -> pd.DataFrame:
         "CompanyCode": "company_code",
         "EnerSource": "energy_source",
         "State": "state",
+        "Date": "effective_date",
     }
     data = resources.rename(
         columns={key: value for key, value in rename.items() if key in resources}
@@ -75,7 +77,15 @@ def resource_catalog(provider: XMProvider) -> pd.DataFrame:
     if "energy_source" not in data:
         data["energy_source"] = data.get("resource_type", "")
     data["technology"] = data["energy_source"].map(canonical_technology)
-    return data.drop_duplicates("resource_code").reset_index(drop=True)
+    if "effective_date" in data:
+        data["effective_date"] = pd.to_datetime(data["effective_date"], errors="coerce", utc=True)
+        if data["effective_date"].notna().any():
+            return (
+                data.sort_values(["resource_code", "effective_date"])
+                .drop_duplicates(["resource_code", "effective_date"], keep="last")
+                .reset_index(drop=True)
+            )
+    return data.drop_duplicates("resource_code", keep="last").reset_index(drop=True)
 
 
 def agent_catalog(provider: XMProvider) -> pd.DataFrame:
@@ -99,7 +109,40 @@ def agent_catalog(provider: XMProvider) -> pd.DataFrame:
 def attach_resource_metadata(frame: pd.DataFrame, resources: pd.DataFrame) -> pd.DataFrame:
     data = frame.copy()
     data["entity_id"] = data["entity_id"].astype(str)
-    merged = data.merge(resources, left_on="entity_id", right_on="resource_code", how="left")
+    if (
+        "effective_date" in resources
+        and resources["effective_date"].notna().any()
+        and resources.duplicated("resource_code").any()
+    ):
+        # Algunas respuestas de ListadoRecursos conservan más de una asociación histórica.
+        # Se utiliza la última asignación oficial conocida en la fecha de cada observación.
+        pieces: list[pd.DataFrame] = []
+        resource_columns = [column for column in resources.columns if column != "resource_code"]
+        for code, observations in data.groupby("entity_id", sort=False):
+            assignments = resources[resources["resource_code"].astype(str).eq(str(code))].sort_values(
+                "effective_date"
+            )
+            current = observations.copy()
+            if assignments.empty:
+                for column in resource_columns:
+                    current[column] = pd.NA
+                current["resource_code"] = code
+                pieces.append(current)
+                continue
+            observation_dates = pd.to_datetime(current["datetime"], utc=True).astype("int64")
+            effective_dates = assignments["effective_date"].astype("int64").to_numpy()
+            positions = np.searchsorted(effective_dates, observation_dates.to_numpy(), side="right") - 1
+            positions = np.clip(positions, 0, len(assignments) - 1)
+            selected = assignments.iloc[positions].reset_index(drop=True)
+            current = current.reset_index(drop=True)
+            for column in resource_columns:
+                current[column] = selected[column].to_numpy()
+            current["resource_code"] = code
+            pieces.append(current)
+        merged = pd.concat(pieces, ignore_index=True) if pieces else data.copy()
+    else:
+        latest = resources.sort_values("effective_date").drop_duplicates("resource_code", keep="last") if "effective_date" in resources else resources.drop_duplicates("resource_code", keep="last")
+        merged = data.merge(latest, left_on="entity_id", right_on="resource_code", how="left")
     merged["resource_name"] = merged["resource_name"].fillna(merged["entity_id"])
     merged["entity_name"] = merged["resource_name"]
     merged["technology"] = merged["technology"].fillna("Otras")

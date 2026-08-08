@@ -7,10 +7,11 @@ import shutil
 import tempfile
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from came.analytics.aggregation import weighted_price
@@ -20,6 +21,13 @@ from came.data.colombia import (
     attach_resource_metadata,
     resource_catalog,
     unserved_demand,
+)
+from came.data.colombia_selection import (
+    DEFAULT_SELECTION,
+    PRIORITY_COMPANIES,
+    PRIORITY_RESOURCES,
+    THERMAL_TECHNOLOGIES,
+    selection_catalog,
 )
 from came.data.monthly_store import (
     LONG_COLUMNS,
@@ -121,6 +129,8 @@ class XMMonthlyTask:
     unit: str
     target_unit: str | None
     aggregation: str
+    aggregation_mode: str = "mean"
+    family: str = "Mercado"
 
 
 COLOMBIA_TASKS = (
@@ -173,6 +183,7 @@ COLOMBIA_TASKS = (
         "COP",
         None,
         "Suma de las observaciones del mes",
+        "sum",
     ),
     XMMonthlyTask(
         "VoluUtilDiarEner",
@@ -183,8 +194,32 @@ COLOMBIA_TASKS = (
         "GWh",
         "GWh",
         "Último valor oficial disponible del mes",
+        "last",
+        "Sistema",
+    ),
+    XMMonthlyTask(
+        "AporEner",
+        "Sistema",
+        "col_aportes_hidricos_gwh_mes",
+        "Aportes hídricos mensuales",
+        "Aportes hídricos",
+        "GWh",
+        "GWh",
+        "Suma de la energía reportada en el mes",
+        "sum",
+        "Sistema",
     ),
 )
+
+TASK_OPTION_KEYS = {
+    "PrecBolsNaci": "spot_price",
+    "PrecEsca": "scarcity_price",
+    "PrecPromContRegu": "contract_regulated",
+    "PrecPromContNoRegu": "contract_nonregulated",
+    "RestSinAliv": "restrictions",
+    "VoluUtilDiarEner": "reservoir",
+    "AporEner": "inflows",
+}
 
 
 class CheckpointStore:
@@ -431,20 +466,20 @@ class ColombiaMonthlyBuilder:
             return pd.DataFrame(columns=LONG_COLUMNS), status, errors
         raw["observed_at"] = pd.to_datetime(raw["datetime"], errors="coerce", utc=True)
         raw["datetime"] = _month_start(raw["observed_at"], "America/Bogota")
-        if task.metric_id == "VoluUtilDiarEner":
+        if task.aggregation_mode == "last":
             monthly = (
                 raw.sort_values("observed_at", kind="stable")
                 .groupby("datetime", as_index=False)["value"]
                 .last()
             )
-        elif task.unit == "COP" and task.metric_id == "RestSinAliv":
+        elif task.aggregation_mode == "sum":
             monthly = raw.groupby("datetime", as_index=False)["value"].sum()
         else:
             monthly = raw.groupby("datetime", as_index=False)["value"].mean()
         rows = _long_rows(
             monthly,
             country="COL",
-            family="Mercado",
+            family=task.family,
             level="Sistema",
             entity_code="SIN",
             entity_name="Colombia",
@@ -554,6 +589,7 @@ class ColombiaMonthlyBuilder:
         start: object,
         end: object,
         callback: ProgressCallback | None,
+        selected_options: set[str] | None = None,
     ) -> tuple[pd.DataFrame, GenerationMonthlyHistory | None, list[dict[str, Any]], list[str]]:
         try:
             resources = resource_catalog(self.xm)
@@ -570,7 +606,7 @@ class ColombiaMonthlyBuilder:
         status: list[dict[str, Any]] = []
         errors: list[str] = []
         for index, (block_start, block_end) in enumerate(blocks, start=1):
-            key = f"xm_Gene_Recurso_{block_start:%Y%m%d}_{block_end:%Y%m%d}"
+            key = f"v140_xm_Gene_Recurso_{block_start:%Y%m%d}_{block_end:%Y%m%d}"
 
             def load(
                 current_start: pd.Timestamp = block_start,
@@ -589,7 +625,8 @@ class ColombiaMonthlyBuilder:
                         on="company_code",
                         how="left",
                     )
-                attached["datetime"] = _month_start(attached["datetime"], "America/Bogota")
+                # Conserve el instante oficial hasta la agregación final. Convertir primero a una
+                # etiqueta MS en UTC y volver a llevarla a Bogotá desplazaría enero a diciembre.
                 group_columns = [
                     "datetime",
                     "entity_id",
@@ -636,7 +673,7 @@ class ColombiaMonthlyBuilder:
                 errors.append("XM · Gene/Recurso: no devolvió observaciones en el periodo.")
             return pd.DataFrame(columns=LONG_COLUMNS), None, status, errors
         history = aggregate_generation_monthly_history(combined)
-        catalog_date = datetime.now(timezone.utc).date().isoformat()
+        catalog_date = datetime.now(UTC).date().isoformat()
         long_frames: list[pd.DataFrame] = []
 
         def add_level(
@@ -678,12 +715,75 @@ class ColombiaMonthlyBuilder:
                     )
                 )
 
-        add_level(history.by_resource, "Recurso", "resource_code", "resource_name")
-        add_level(history.by_company, "Empresa", "company_code", "company_name")
-        technology = history.by_technology.assign(
-            technology_code=_slug_series(history.by_technology["technology"])
+        legacy_all = selected_options is None
+        selected = selected_options or set()
+        if legacy_all:
+            add_level(history.by_resource, "Recurso", "resource_code", "resource_name")
+            add_level(history.by_company, "Empresa", "company_code", "company_name")
+        elif "generation_resources" in selected:
+            resources_priority = history.by_resource[
+                history.by_resource["resource_code"].astype(str).isin(PRIORITY_RESOURCES)
+            ].copy()
+            if not resources_priority.empty:
+                add_level(resources_priority, "Recurso", "resource_code", "resource_name")
+
+        if legacy_all or "generation_technology" in selected:
+            technology = history.by_technology.assign(
+                technology_code=_slug_series(history.by_technology["technology"])
+            )
+            add_level(technology, "Tecnología", "technology_code", "technology")
+
+        # Grupos empresariales acordados. La clasificación tecnológica se realiza antes de sumar
+        # para presentar total, hidráulica, térmica y otras sin guardar todas las plantas.
+        if not legacy_all and "generation_companies" in selected:
+            company_rows: list[pd.DataFrame] = []
+            resource_history = history.by_resource.copy()
+            for group_slug, (group_name, codes) in PRIORITY_COMPANIES.items():
+                group = resource_history[resource_history["company_code"].astype(str).isin(codes)].copy()
+                if group.empty:
+                    continue
+                group["classification"] = np.select(
+                    [
+                        group["technology"].eq("Hidráulica"),
+                        group["technology"].isin(THERMAL_TECHNOLOGIES),
+                    ],
+                    ["Hidráulica", "Térmica"],
+                    default="Otras",
+                )
+                classified = group.groupby(["datetime", "classification"], as_index=False)[
+                    ["GWh_mes", "GWh_día"]
+                ].sum()
+                totals_group = group.groupby("datetime", as_index=False)[["GWh_mes", "GWh_día"]].sum()
+                totals_group["classification"] = "Total"
+                classified = pd.concat([totals_group, classified], ignore_index=True)
+                classified["group_code"] = (
+                    "grupo_" + group_slug + "_" + _slug_series(classified["classification"])
+                )
+                classified["group_name"] = group_name + " · " + classified["classification"]
+                company_rows.append(classified)
+            grouped_companies = _combine_partial_frames(company_rows)
+            if not grouped_companies.empty:
+                add_level(grouped_companies, "Empresa", "group_code", "group_name")
+
+        # Los agregados hidráulica/térmica/otras permanecen disponibles aun cuando el usuario no
+        # guarde el detalle de todas las tecnologías.
+        national_group = history.by_resource.copy()
+        national_group["classification"] = np.select(
+            [
+                national_group["technology"].eq("Hidráulica"),
+                national_group["technology"].isin(THERMAL_TECHNOLOGIES),
+            ],
+            ["Hidráulica", "Térmica"],
+            default="Otras",
         )
-        add_level(technology, "Tecnología", "technology_code", "technology")
+        national_group = national_group.groupby(["datetime", "classification"], as_index=False)[
+            ["GWh_mes", "GWh_día"]
+        ].sum()
+        national_group["technology_code"] = "nacional_" + _slug_series(
+            national_group["classification"]
+        )
+        national_group["technology_name"] = "Nacional · " + national_group["classification"]
+        add_level(national_group, "Tecnología", "technology_code", "technology_name")
         totals = history.by_resource.groupby("datetime", as_index=False)[
             ["GWh_mes", "GWh_día"]
         ].sum()
@@ -717,6 +817,218 @@ class ColombiaMonthlyBuilder:
                 )
             )
         return pd.concat(long_frames, ignore_index=True), history, status, errors
+
+    def _capacity(
+        self,
+        start: object,
+        end: object,
+        callback: ProgressCallback | None,
+    ) -> tuple[pd.DataFrame, list[dict[str, Any]], list[str]]:
+        """Suma la última CEN disponible por recurso en cada mes."""
+
+        blocks = _year_blocks(start, end)
+        frames: list[pd.DataFrame] = []
+        status: list[dict[str, Any]] = []
+        errors: list[str] = []
+        for index, (block_start, block_end) in enumerate(blocks, start=1):
+            key = f"xm_CapEfecNeta_Recurso_{block_start:%Y%m%d}_{block_end:%Y%m%d}"
+
+            def load(current_start=block_start, current_end=block_end) -> pd.DataFrame:
+                raw = self.xm.fetch(
+                    "CapEfecNeta", "Recurso", current_start, current_end, target_unit="MW"
+                ).data.copy()
+                raw["datetime"] = _month_start(raw["datetime"], "America/Bogota")
+                return raw
+
+            frame, error, cached = self._cached_block(key, load)
+            period = f"{block_start.date()} a {block_end.date()}"
+            state = "Error" if error else ("Reutilizado" if cached else "Aprobado")
+            if error:
+                errors.append(f"XM · CapEfecNeta/Recurso · {period}: {error}")
+            elif frame is not None:
+                frames.append(frame)
+            status.append({"Fuente": "XM", "Variable": "CapEfecNeta/Recurso", "Periodo": period, "Estado": state, "Detalle": error or ""})
+            _emit(callback, ProgressEvent("XM", "CapEfecNeta/Recurso", period, index, len(blocks), state, error or ""))
+        raw = _combine_partial_frames(frames)
+        if raw.empty:
+            if not errors:
+                errors.append("XM · CapEfecNeta/Recurso: no devolvió observaciones en el periodo.")
+            return pd.DataFrame(columns=LONG_COLUMNS), status, errors
+        if "entity_id" not in raw:
+            raw["entity_id"] = raw.get("entity_name", "SIN")
+        by_resource = raw.sort_values("datetime").groupby(["datetime", "entity_id"], as_index=False)["value"].last()
+        monthly = by_resource.groupby("datetime", as_index=False)["value"].sum()
+        rows = _long_rows(
+            monthly,
+            country="COL",
+            family="Sistema",
+            level="Sistema",
+            entity_code="SIN",
+            entity_name="Colombia",
+            variable="Capacidad efectiva neta total",
+            unit="MW",
+            value_column="value",
+            source="XM",
+            dataset="CapEfecNeta/Recurso",
+            aggregation="Suma de la última capacidad disponible por recurso en cada mes",
+            series_id="col_cen_total_mw",
+            series_name="CEN total",
+        )
+        return rows, status, errors
+
+    def _fuel_offer_prices(
+        self,
+        start: object,
+        end: object,
+        callback: ProgressCallback | None,
+    ) -> tuple[pd.DataFrame, list[dict[str, Any]], list[str], list[str]]:
+        """Promedios de ofertas de gas/carbón, simples y ponderados por CEN."""
+
+        try:
+            resources = resource_catalog(self.xm)
+        except Exception as exc:
+            return pd.DataFrame(columns=LONG_COLUMNS), [], [f"Catálogo para ofertas: {exc}"], []
+        blocks = _year_blocks(start, end)
+        offer_frames: list[pd.DataFrame] = []
+        capacity_frames: list[pd.DataFrame] = []
+        status: list[dict[str, Any]] = []
+        errors: list[str] = []
+        warnings: list[str] = []
+        for index, (block_start, block_end) in enumerate(blocks, start=1):
+            period = f"{block_start.date()} a {block_end.date()}"
+            for metric, target, destination in (
+                ("PrecOferDesp", None, offer_frames),
+                ("CapEfecNeta", "MW", capacity_frames),
+            ):
+                key = f"xm_{metric}_Recurso_{block_start:%Y%m%d}_{block_end:%Y%m%d}"
+
+                def load(current_metric=metric, current_target=target, current_start=block_start, current_end=block_end):
+                    return self.xm.fetch(
+                        current_metric,
+                        "Recurso",
+                        current_start,
+                        current_end,
+                        target_unit=current_target,
+                    ).data
+
+                frame, error, cached = self._cached_block(key, load)
+                state = "Error" if error else ("Reutilizado" if cached else "Aprobado")
+                if error:
+                    errors.append(f"XM · {metric}/Recurso · {period}: {error}")
+                elif frame is not None:
+                    destination.append(frame)
+                status.append({"Fuente": "XM", "Variable": f"{metric}/Recurso", "Periodo": period, "Estado": state, "Detalle": error or ""})
+                _emit(callback, ProgressEvent("XM", f"{metric}/Recurso", period, index, len(blocks), state, error or ""))
+        offers = _combine_partial_frames(offer_frames)
+        capacity = _combine_partial_frames(capacity_frames)
+        if offers.empty:
+            if not errors:
+                errors.append("XM · PrecOferDesp/Recurso: no devolvió observaciones en el periodo.")
+            return pd.DataFrame(columns=LONG_COLUMNS), status, errors, warnings
+        offers = attach_resource_metadata(offers, resources)
+        offers["datetime"] = _month_start(offers["datetime"], "America/Bogota")
+        offers = offers[offers["technology"].isin(["Gas", "Carbón"])].copy()
+        offers = offers.groupby(["datetime", "entity_id", "technology"], as_index=False)["value"].mean().rename(columns={"value": "offer"})
+        if capacity.empty:
+            warnings.append("No hubo CEN para ponderar ofertas; se conservaron solo promedios simples.")
+            offers["capacity"] = np.nan
+        else:
+            if "entity_id" not in capacity:
+                capacity["entity_id"] = capacity.get("entity_name", "")
+            capacity["datetime"] = _month_start(capacity["datetime"], "America/Bogota")
+            capacity = capacity.sort_values("datetime").groupby(["datetime", "entity_id"], as_index=False)["value"].last().rename(columns={"value": "capacity"})
+            offers = offers.merge(capacity, on=["datetime", "entity_id"], how="left")
+        outputs: list[pd.DataFrame] = []
+        for technology, slug in (("Gas", "gas"), ("Carbón", "carbon")):
+            selected = offers[offers["technology"].eq(technology)].copy()
+            if selected.empty:
+                continue
+            simple = selected.groupby("datetime", as_index=False)["offer"].mean()
+            selected["weighted"] = selected["offer"] * selected["capacity"]
+            weighted = selected.groupby("datetime", as_index=False).agg(numerator=("weighted", "sum"), denominator=("capacity", "sum"))
+            weighted["offer"] = np.where(weighted["denominator"].gt(0), weighted["numerator"] / weighted["denominator"], np.nan)
+            outputs.extend(
+                [
+                    _long_rows(simple, country="COL", family="Precios", level="Tecnología", entity_code=slug.upper(), entity_name=technology, variable=f"Precio oferta {technology} promedio simple", unit="COP/kWh", value_column="offer", source="XM", dataset="PrecOferDesp/Recurso", aggregation="Promedio simple mensual de recursos con oferta válida", series_id=f"col_precio_oferta_{slug}_simple_cop_kwh", series_name=f"Precio oferta {technology} · promedio simple"),
+                    _long_rows(weighted, country="COL", family="Precios", level="Tecnología", entity_code=slug.upper(), entity_name=technology, variable=f"Precio oferta {technology} ponderado por capacidad", unit="COP/kWh", value_column="offer", source="XM", dataset="PrecOferDesp + CapEfecNeta/Recurso", aggregation="Promedio mensual ponderado por capacidad instalada; no usa generación", series_id=f"col_precio_oferta_{slug}_ponderado_cen_cop_kwh", series_name=f"Precio oferta {technology} · ponderado por CEN"),
+                ]
+            )
+        return _combine_partial_frames(outputs), status, errors, warnings
+
+    def _dynamic_optional_tasks(self, selected_options: set[str]) -> tuple[list[XMMonthlyTask], list[str]]:
+        """Resuelve variables complementarias desde el catálogo vivo sin fijar IDs frágiles."""
+
+        searches = {
+            "contract_mc": (("costo", "promedio", "contrat"), ("indice", "mc")),
+            "availability": (("dispon",),),
+            "imports_exports": (("import",), ("export",)),
+            "market_exposure": (("expos", "bolsa"), ("compra", "bolsa")),
+        }
+        requested = {key: token_sets for key, token_sets in searches.items() if key in selected_options}
+        if not requested:
+            return [], []
+        try:
+            catalog = self.xm.catalog()
+        except Exception as exc:
+            return [], [f"Catálogo vivo XM para variables opcionales: {exc}"]
+        tasks: list[XMMonthlyTask] = []
+        warnings: list[str] = []
+        searchable = (
+            catalog.get("MetricName", pd.Series(index=catalog.index, dtype="string")).astype(str)
+            + " "
+            + catalog.get("MetricId", pd.Series(index=catalog.index, dtype="string")).astype(str)
+        ).str.casefold()
+        for option, token_sets in requested.items():
+            found = pd.DataFrame()
+            if option == "contract_mc" and "MetricId" in catalog:
+                exact = catalog[catalog["MetricId"].astype(str).str.casefold().eq("mc")]
+                if not exact.empty:
+                    system = exact[exact["Entity"].astype(str).eq("Sistema")]
+                    found = system.head(1) if not system.empty else exact.head(1)
+            for tokens in token_sets:
+                if not found.empty:
+                    break
+                mask = pd.Series(True, index=catalog.index)
+                for token in tokens:
+                    mask &= searchable.str.contains(token, na=False)
+                candidates = catalog[mask].copy()
+                if not candidates.empty:
+                    system = candidates[candidates["Entity"].astype(str).eq("Sistema")]
+                    found = system.head(1) if not system.empty else candidates.head(1)
+                    break
+            if found.empty:
+                warnings.append(f"XM no mostró una serie de catálogo para {option}; queda como cobertura no disponible.")
+                continue
+            row = found.iloc[0]
+            metric_id = str(row["MetricId"])
+            entity = str(row["Entity"])
+            unit = str(row.get("MetricUnits") or "Unidad XM")
+            slug = re.sub(r"[^a-z0-9]+", "_", metric_id.casefold()).strip("_")
+            if option == "contract_mc":
+                series_id = "col_precio_mc_cop_kwh"
+                series_name = "Índice MC"
+                variable = "Índice MC"
+                family = "Precios"
+            else:
+                series_id = f"col_{option}_{slug}"
+                series_name = str(row.get("MetricName") or metric_id)
+                variable = series_name
+                family = "Sistema"
+            tasks.append(
+                XMMonthlyTask(
+                    metric_id,
+                    entity,
+                    series_id,
+                    series_name,
+                    variable,
+                    unit,
+                    None,
+                    "Promedio simple mensual de las observaciones oficiales",
+                    "mean",
+                    family,
+                )
+            )
+        return tasks, warnings
 
     def _unserved(
         self,
@@ -933,18 +1245,24 @@ class ColombiaMonthlyBuilder:
 
     @staticmethod
     def _add_non_hydraulic(data: pd.DataFrame) -> pd.DataFrame:
-        demand = data[data["series_id"].eq("col_demanda_gwh_dia")][["datetime", "value"]].rename(
-            columns={"value": "demand"}
+        total = data[data["series_id"].eq("col_generacion_total_gwh_dia")][
+            ["datetime", "value"]
+        ].rename(
+            columns={"value": "total"}
         )
-        hydro = data[
-            data["series_id"].str.contains(
-                "col_generacion_tecnologia_hidraulica_gwh_dia", regex=False
-            )
-        ][["datetime", "value"]].rename(columns={"value": "hydro"})
-        merged = demand.merge(hydro, on="datetime", how="inner")
+        preferred_id = "col_generacion_tecnologia_nacional_hidraulica_gwh_dia"
+        hydro_id = (
+            preferred_id
+            if data["series_id"].eq(preferred_id).any()
+            else "col_generacion_tecnologia_hidraulica_gwh_dia"
+        )
+        hydro = data[data["series_id"].eq(hydro_id)][["datetime", "value"]].rename(
+            columns={"value": "hydro"}
+        )
+        merged = total.merge(hydro, on="datetime", how="inner")
         if merged.empty:
             return data
-        merged["value"] = merged["demand"] - merged["hydro"]
+        merged["value"] = merged["total"] - merged["hydro"]
         derived = _long_rows(
             merged,
             country="COL",
@@ -956,12 +1274,104 @@ class ColombiaMonthlyBuilder:
             unit="GWh-día",
             value_column="value",
             source="Cálculo CAME con datos XM",
-            dataset="DemaSIN - Gene/Recurso hidráulica",
-            aggregation="Demanda nacional menos generación hidráulica",
+            dataset="Gene/Recurso total - hidráulica",
+            aggregation="Generación nacional menos generación hidráulica",
             series_id="col_generacion_no_hidraulica_gwh_dia",
             series_name="Generación no hidráulica promedio diario",
         )
         return merge_monthly_data(data, derived)
+
+    @staticmethod
+    def _add_reference_derivatives(data: pd.DataFrame) -> pd.DataFrame:
+        """Añade columnas calculadas del Excel de referencia sin nuevas consultas."""
+
+        if data.empty:
+            return data
+        dates = pd.DataFrame(
+            {"datetime": sorted(pd.to_datetime(data["datetime"], utc=True).dropna().unique())}
+        )
+        dates["días"] = dates["datetime"].dt.days_in_month.astype(float)
+        dates["tiempo"] = np.arange(1, len(dates) + 1, dtype=float)
+        quarter = dates["datetime"].dt.quarter
+        for number in (1, 2, 3):
+            dates[f"trim_{number}"] = quarter.eq(number).astype(float)
+        frames = [
+            _long_rows(
+                dates,
+                country="COL",
+                family="Calendario",
+                level="Calculada",
+                entity_code="CAL",
+                entity_name="Calendario mensual",
+                variable="Días calendario del mes",
+                unit="días",
+                value_column="días",
+                source="Cálculo CAME",
+                dataset="Calendario",
+                aggregation="Número de días calendario del mes",
+                series_id="col_dias_mes",
+                series_name="Días del mes",
+            ),
+            _long_rows(
+                dates,
+                country="COL",
+                family="Calendario",
+                level="Calculada",
+                entity_code="TIEMPO",
+                entity_name="Tendencia",
+                variable="Tiempo",
+                unit="índice",
+                value_column="tiempo",
+                source="Cálculo CAME",
+                dataset="Calendario",
+                aggregation="1, 2, 3… después de ordenar los meses",
+                series_id="col_tiempo",
+                series_name="Tiempo",
+            ),
+        ]
+        for number in (1, 2, 3):
+            frames.append(
+                _long_rows(
+                    dates,
+                    country="COL",
+                    family="Calendario",
+                    level="Calculada",
+                    entity_code=f"TRIM{number}",
+                    entity_name=f"Trimestre {number}",
+                    variable=f"Indicador trimestre {number}",
+                    unit="Indicador 0/1",
+                    value_column=f"trim_{number}",
+                    source="Cálculo CAME",
+                    dataset="Calendario",
+                    aggregation=f"1 si el mes pertenece al trimestre {number}; 0 en otro caso",
+                    series_id=f"col_trimestre_{number}",
+                    series_name=f"Trimestre {number}",
+                )
+            )
+        inflows = data[data["series_id"].eq("col_aportes_hidricos_gwh_mes")][
+            ["datetime", "value"]
+        ].copy()
+        if not inflows.empty:
+            inflows["GWh_día"] = inflows["value"] / inflows["datetime"].dt.days_in_month
+            frames.append(
+                _long_rows(
+                    inflows,
+                    country="COL",
+                    family="Sistema",
+                    level="Calculada",
+                    entity_code="SIN",
+                    entity_name="Colombia",
+                    variable="Aportes hídricos promedio diario",
+                    unit="GWh-día",
+                    value_column="GWh_día",
+                    source="Cálculo CAME con datos XM",
+                    dataset="AporEner/Sistema",
+                    aggregation="Aportes GWh del mes divididos por días calendario",
+                    series_id="col_aportes_hidricos_gwh_dia",
+                    series_name="Aportes hídricos promedio diario",
+                )
+            )
+        return merge_monthly_data(data, _combine_partial_frames(frames))
 
     def build(
         self,
@@ -972,6 +1382,8 @@ class ColombiaMonthlyBuilder:
         replace_start: object | None = None,
         replace_end: object | None = None,
         include_macro: bool = True,
+        selected_options: set[str] | None = None,
+        extra_tasks: list[XMMonthlyTask] | None = None,
         callback: ProgressCallback | None = None,
     ) -> BuildResult:
         first = pd.Timestamp(start).normalize()
@@ -992,31 +1404,69 @@ class ColombiaMonthlyBuilder:
         errors: list[str] = []
         warnings: list[str] = []
 
+        legacy_all = selected_options is None
+        selected = set(DEFAULT_SELECTION if selected_options is None else selected_options)
+        selected.update({"demand", "spot_price", "generation_national"})
+
         demand, task_status, task_errors = self._demand(first, final, callback)
         long_frames.append(demand)
         statuses.extend(task_status)
         errors.extend(task_errors)
-        for task in COLOMBIA_TASKS:
+        tasks = [
+            task
+            for task in COLOMBIA_TASKS
+            if legacy_all or TASK_OPTION_KEYS.get(task.metric_id) in selected
+        ]
+        dynamic_tasks, dynamic_warnings = self._dynamic_optional_tasks(selected)
+        tasks.extend(dynamic_tasks)
+        tasks.extend(extra_tasks or [])
+        warnings.extend(dynamic_warnings)
+        for task in tasks:
             rows, task_status, task_errors = self._system_task(task, first, final, callback)
             long_frames.append(rows)
             statuses.extend(task_status)
-            errors.extend(task_errors)
-        generation, history, task_status, task_errors = self._generation(first, final, callback)
+            if task.metric_id == "PrecBolsNaci":
+                errors.extend(task_errors)
+            else:
+                warnings.extend(
+                    "Variable opcional no disponible: " + message for message in task_errors
+                )
+        generation, history, task_status, task_errors = self._generation(
+            first,
+            final,
+            callback,
+            selected_options=None if legacy_all else selected,
+        )
         long_frames.append(generation)
         statuses.extend(task_status)
         errors.extend(task_errors)
-        dna, dna_audit, task_status, task_errors, task_warnings = self._unserved(
-            first, final, callback
-        )
-        long_frames.append(dna)
-        statuses.extend(task_status)
-        errors.extend(task_errors)
-        warnings.extend(task_warnings)
-        if include_macro:
+        dna_audit = pd.DataFrame()
+        if legacy_all or "unserved" in selected:
+            dna, dna_audit, task_status, task_errors, task_warnings = self._unserved(
+                first, final, callback
+            )
+            long_frames.append(dna)
+            statuses.extend(task_status)
+            warnings.extend("Variable opcional no disponible: " + message for message in task_errors)
+            warnings.extend(task_warnings)
+        if not legacy_all and "capacity" in selected:
+            capacity, task_status, task_errors = self._capacity(first, final, callback)
+            long_frames.append(capacity)
+            statuses.extend(task_status)
+            warnings.extend("Variable opcional no disponible: " + message for message in task_errors)
+        if not legacy_all and "fuel_offers" in selected:
+            offers, task_status, task_errors, task_warnings = self._fuel_offer_prices(
+                first, final, callback
+            )
+            long_frames.append(offers)
+            statuses.extend(task_status)
+            warnings.extend("Variable opcional no disponible: " + message for message in task_errors)
+            warnings.extend(task_warnings)
+        if include_macro and (legacy_all or {"trm", "enso"}.intersection(selected)):
             macro, task_status, task_errors = self._macro(first, final, callback)
             long_frames.append(macro)
             statuses.extend(task_status)
-            errors.extend(task_errors)
+            warnings.extend("Variable complementaria no disponible: " + message for message in task_errors)
 
         incoming = _combine_partial_frames(long_frames)
         base = existing.copy() if existing is not None else pd.DataFrame(columns=LONG_COLUMNS)
@@ -1029,11 +1479,41 @@ class ColombiaMonthlyBuilder:
             base = base[~dates.between(lower, upper)]
         data = merge_monthly_data(base, incoming)
         data = self._add_non_hydraulic(data)
-        catalogs: dict[str, pd.DataFrame] = {"Auditoría DNA": dna_audit}
+        data = self._add_reference_derivatives(data)
+        catalogs: dict[str, pd.DataFrame] = {
+            "Selección de variables": selection_catalog().assign(
+                Seleccionada=lambda frame: frame["Clave"].isin(selected)
+            ),
+            "Auditoría DNA": dna_audit,
+        }
         validation = pd.DataFrame()
         if history is not None:
             catalogs["Recursos XM"] = history.resource_catalog
             validation = history.validation
+            ownership = history.by_resource[
+                ["datetime", "resource_code", "resource_name", "company_code", "company_name"]
+            ].drop_duplicates().sort_values(["resource_code", "datetime"])
+            ownership["Empresa anterior"] = ownership.groupby("resource_code")["company_name"].shift()
+            changes = ownership[
+                ownership["Empresa anterior"].notna()
+                & ownership["company_name"].ne(ownership["Empresa anterior"])
+            ].rename(
+                columns={
+                    "datetime": "Fecha efectiva observada",
+                    "resource_code": "Código recurso",
+                    "resource_name": "Recurso",
+                    "company_name": "Empresa nueva",
+                }
+            )
+            catalogs["Cambios de propietario"] = changes[
+                [
+                    "Fecha efectiva observada",
+                    "Código recurso",
+                    "Recurso",
+                    "Empresa anterior",
+                    "Empresa nueva",
+                ]
+            ]
         errors, coverage_warnings = _classify_colombia_completion(data, errors)
         warnings.extend(coverage_warnings)
         return BuildResult(

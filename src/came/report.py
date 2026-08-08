@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import pandas as pd
@@ -46,7 +46,7 @@ def make_package(
         package_id=package_id or uuid.uuid4().hex[:12],
         module=module,
         title=title,
-        created_at=datetime.now(timezone.utc).isoformat(),
+        created_at=datetime.now(UTC).isoformat(),
         period=period,
         source=source,
         unit=unit,

@@ -41,6 +41,9 @@ class PortfolioResult:
     excluded_nonpositive_prices: int = 0
 
 
+SENSITIVITY_METRICS = ("Media", "Desviación estándar", "VaR", "CVaR", "M-CVaR")
+
+
 def lognormal_parameters(mean: float, sd: float) -> tuple[float, float]:
     if mean <= 0 or sd < 0:
         raise DataQualityError("La media del precio debe ser positiva y su desviación no negativa.")
@@ -63,6 +66,8 @@ def _validate_inputs(inputs: PortfolioInputs) -> None:
         raise DataQualityError("La correlación objetivo debe estar entre -0,99 y 0,99.")
     if inputs.trm_cop_usd <= 0:
         raise DataQualityError("La TRM debe ser positiva.")
+    if not -2 <= inputs.contract_share <= 2:
+        raise DataQualityError("El porcentaje contratado debe estar entre -200 % y 200 %.")
 
 
 def _pilot_realized_correlation(
@@ -152,13 +157,17 @@ def _distribution_summary(values: np.ndarray, name: str) -> dict[str, float | st
 def _risk_metrics(values: np.ndarray, name: str) -> dict[str, float | str]:
     var_1 = float(np.quantile(values, 0.01))
     var_5 = float(np.quantile(values, 0.05))
+    cvar_1 = float(values[values <= var_1].mean())
+    cvar_5 = float(values[values <= var_5].mean())
+    mean = float(values.mean())
     return {
         "Escenario": name,
-        "Promedio": float(values.mean()),
+        "Promedio": mean,
         "VaR_1_pct": var_1,
-        "CVaR_1_pct": float(values[values <= var_1].mean()),
+        "CVaR_1_pct": cvar_1,
         "VaR_5_pct": var_5,
-        "CVaR_5_pct": float(values[values <= var_5].mean()),
+        "CVaR_5_pct": cvar_5,
+        "M-CVaR_5_pct": mean - cvar_5,
     }
 
 
@@ -171,7 +180,7 @@ def simulate_portfolio(inputs: PortfolioInputs) -> PortfolioResult:
     contracted_generation = (
         float(inputs.contracted_generation_gwh)
         if inputs.contracted_generation_gwh is not None
-        else float(generation.mean())
+        else float(inputs.generation_mean_gwh)
     )
     sales_unhedged = price * generation
     sales_hedged = sales_unhedged + (
@@ -216,6 +225,124 @@ def simulate_portfolio(inputs: PortfolioInputs) -> PortfolioResult:
         latent_correlation=latent,
         realized_correlation=realized,
     )
+
+
+def _outcome_metrics(values: np.ndarray) -> dict[str, float]:
+    """Métricas de resultado financiero; VaR y CVaR conservan su signo."""
+
+    var = float(np.quantile(values, 0.05))
+    cvar = float(values[values <= var].mean())
+    mean = float(np.mean(values))
+    return {
+        "Media": mean,
+        "Desviación estándar": float(np.std(values, ddof=1)),
+        "VaR": var,
+        "CVaR": cvar,
+        "M-CVaR": mean - cvar,
+    }
+
+
+def _contracted_sales(
+    simulations: pd.DataFrame,
+    *,
+    share: float,
+    expected_generation_gwh: float,
+    contract_price_cop_kwh: float,
+) -> np.ndarray:
+    generation = simulations["Generación_GWh"].to_numpy(dtype=float)
+    price = simulations["Precio_bolsa_COP_kWh"].to_numpy(dtype=float)
+    return price * generation + share * expected_generation_gwh * (contract_price_cop_kwh - price)
+
+
+def sensitivity_contract_share(
+    inputs: PortfolioInputs,
+    shares: object,
+) -> pd.DataFrame:
+    """Sensibilidad a contratación con correlación y precio fijos."""
+
+    base = simulate_portfolio(inputs)
+    rows = []
+    for share in np.asarray(shares, dtype=float):
+        if not -2 <= share <= 2:
+            raise DataQualityError("Todos los porcentajes deben estar entre -200 % y 200 %.")
+        values = _contracted_sales(
+            base.simulations,
+            share=float(share),
+            expected_generation_gwh=inputs.generation_mean_gwh,
+            contract_price_cop_kwh=inputs.contract_price_cop_kwh,
+        )
+        rows.append(
+            {
+                "Porcentaje contratado": float(share),
+                "Correlación": inputs.target_correlation,
+                "Precio contrato COP/kWh": inputs.contract_price_cop_kwh,
+                **_outcome_metrics(values),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def sensitivity_contract_correlation(
+    inputs: PortfolioInputs,
+    shares: object,
+    correlations: object,
+) -> pd.DataFrame:
+    """Sensibilidad 10×5; cada correlación reutiliza los mismos normales base por semilla."""
+
+    rows: list[dict[str, float]] = []
+    shares_array = np.asarray(shares, dtype=float)
+    correlations_array = np.asarray(correlations, dtype=float)
+    for correlation in correlations_array:
+        if not -0.99 <= correlation <= 0.99:
+            raise DataQualityError("Las correlaciones deben estar entre -0,99 y 0,99.")
+        correlated_inputs = PortfolioInputs(**({**vars(inputs), "target_correlation": float(correlation)}))
+        simulations = simulate_portfolio(correlated_inputs).simulations
+        for share in shares_array:
+            values = _contracted_sales(
+                simulations,
+                share=float(share),
+                expected_generation_gwh=inputs.generation_mean_gwh,
+                contract_price_cop_kwh=inputs.contract_price_cop_kwh,
+            )
+            rows.append(
+                {
+                    "Porcentaje contratado": float(share),
+                    "Correlación": float(correlation),
+                    "Precio contrato COP/kWh": inputs.contract_price_cop_kwh,
+                    **_outcome_metrics(values),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def sensitivity_contract_price(
+    inputs: PortfolioInputs,
+    shares: object,
+    contract_prices: object,
+) -> pd.DataFrame:
+    """Sensibilidad 10×5 a contratación y precio con correlación fija."""
+
+    simulations = simulate_portfolio(inputs).simulations
+    rows: list[dict[str, float]] = []
+    for price in np.asarray(contract_prices, dtype=float):
+        if price < 0:
+            raise DataQualityError("Los precios contractuales no pueden ser negativos.")
+        for share in np.asarray(shares, dtype=float):
+            values = _contracted_sales(
+                simulations,
+                share=float(share),
+                expected_generation_gwh=inputs.generation_mean_gwh,
+                contract_price_cop_kwh=float(price),
+            )
+            rows.append(
+                {
+                    "Porcentaje contratado": float(share),
+                    "Correlación": inputs.target_correlation,
+                    "Precio contrato COP/kWh": float(price),
+                    **_outcome_metrics(values),
+                }
+            )
+    return pd.DataFrame(rows)
 
 
 def historical_portfolio_parameters(

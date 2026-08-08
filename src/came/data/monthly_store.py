@@ -15,7 +15,7 @@ import tempfile
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -173,7 +173,7 @@ def allocate_ready_package_directory(country: str, build_id: str) -> Path:
 
     spec = get_package_spec(country)
     safe_id = re.sub(r"[^a-zA-Z0-9_.-]+", "_", build_id).strip("._") or "construccion"
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     name = f"{stamp}_{safe_id}_{uuid.uuid4().hex[:8]}"
     return runtime_storage_root(create=True) / "ready" / spec.code / name
 
@@ -211,7 +211,7 @@ def discover_ready_monthly_package(country: str) -> StoredMonthlyPackage | None:
 def last_complete_month(reference: object | None = None) -> pd.Timestamp:
     """Devuelve el primer día UTC del último mes calendario completo."""
 
-    current = pd.Timestamp(reference or datetime.now(timezone.utc))
+    current = pd.Timestamp(reference or datetime.now(UTC))
     current = current.tz_localize("UTC") if current.tzinfo is None else current.tz_convert("UTC")
     current_naive = current.tz_localize(None)
     return (current_naive.to_period("M").to_timestamp() - pd.offsets.MonthBegin()).tz_localize(
@@ -309,7 +309,7 @@ def build_series_catalog(frame: pd.DataFrame) -> pd.DataFrame:
         "series_name",
         "catalog_date",
     ]
-    return (
+    catalog = (
         data.groupby(group_columns, as_index=False, dropna=False, observed=True)
         .agg(
             Inicio=("datetime", "min"),
@@ -320,6 +320,16 @@ def build_series_catalog(frame: pd.DataFrame) -> pd.DataFrame:
         .sort_values(["family", "level", "series_name"], kind="stable")
         .reset_index(drop=True)
     )
+    if str(data["country"].iloc[0]).upper() == "COL":
+        from came.data.colombia_selection import is_recommended_series
+
+        catalog["Preseleccionada"] = catalog.apply(
+            lambda row: is_recommended_series(
+                row["series_id"], row["level"], row["entity_code"]
+            ),
+            axis=1,
+        )
+    return catalog
 
 
 def _write_excel_catalog(
@@ -433,7 +443,7 @@ def create_monthly_package(
     data.to_parquet(parquet_buffer, index=False, compression="zstd")
     parquet_bytes = parquet_buffer.getvalue()
     catalog_bytes = _excel_bytes(catalog, coverage, validation, additional_sheets)
-    created_at = datetime.now(timezone.utc).isoformat()
+    created_at = datetime.now(UTC).isoformat()
     metadata = {
         "schema_version": SCHEMA_VERSION,
         "country": spec.code,
@@ -523,7 +533,7 @@ def create_stored_monthly_package(
         )
         del catalog, coverage
 
-        created_at = datetime.now(timezone.utc).isoformat()
+        created_at = datetime.now(UTC).isoformat()
         metadata = {
             "schema_version": SCHEMA_VERSION,
             "country": spec.code,
@@ -628,7 +638,7 @@ def store_monthly_package(
     _write_bytes_atomically(metadata_path, package.metadata_bytes)
     _write_bytes_atomically(zip_path, package.zip_bytes)
 
-    created_at = str(package.metadata.get("created_at_utc", datetime.now(timezone.utc).isoformat()))
+    created_at = str(package.metadata.get("created_at_utc", datetime.now(UTC).isoformat()))
     manifest = {
         "country": spec.code,
         "created_at_utc": created_at,

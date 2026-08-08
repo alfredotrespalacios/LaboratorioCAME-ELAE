@@ -225,6 +225,7 @@ def export_and_collect(
     period: str,
     warnings: list[str] | None = None,
     figure: Any = None,
+    figures: list[tuple[str, Any]] | None = None,
     additional: dict[str, Any] | None = None,
     key: str,
 ) -> None:
@@ -267,14 +268,26 @@ def export_and_collect(
     except Exception as exc:
         excel_error = str(exc)
     try:
+        pdf_figures: list[tuple[str, bytes | None]] = []
+        if figure is not None:
+            pdf_figures.append(("Resultado gráfico", plotly_png(figure)))
+        for figure_title, extra_figure in figures or []:
+            if isinstance(extra_figure, (bytes, bytearray)):
+                pdf_figures.append((figure_title, bytes(extra_figure)))
+            else:
+                pdf_figures.append((figure_title, plotly_png(extra_figure)))
+        pdf_tables = {"Datos": data}
+        for table_name, table_value in (additional or {}).items():
+            if isinstance(table_value, (pd.DataFrame, pd.Series)):
+                pdf_tables[str(table_name)] = pd.DataFrame(table_value)
         pdf = build_pdf(
             title=title,
             subtitle=f"{period} · {source}",
             indicators=indicators,
-            tables={"Datos": data},
+            tables=pdf_tables,
             methodology=methodology,
             warnings=warnings,
-            figures=[("Resultado gráfico", plotly_png(figure))] if figure is not None else None,
+            figures=pdf_figures,
         )
     except Exception as exc:
         pdf_error = str(exc)

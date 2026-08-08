@@ -23,7 +23,7 @@ if sys.version_info[:2] != (3, 12):
     st.error(
         "Entorno incompatible: esta instalación usa Python "
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}. "
-        "Laboratorio CAME 1.3.2 requiere Python 3.12. Cambie la versión del despliegue antes de "
+        "Laboratorio CAME 1.4.0 requiere Python 3.12. Cambie la versión del despliegue antes de "
         "construir o actualizar bases históricas."
     )
     st.stop()
@@ -190,7 +190,7 @@ navigation = st.navigation(
         "Estructuración de portafolios": [
             st.Page(
                 partial(_run_page, "portfolio_montecarlo", "page_portfolio"),
-                title="13. Monte Carlo",
+                title="13. Cálculo rápido de portafolios",
                 url_path="portafolio",
             ),
         ],
