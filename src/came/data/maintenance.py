@@ -37,6 +37,24 @@ from came.errors import SourceUnavailableError
 ProgressCallback = Callable[["ProgressEvent"], None]
 MAX_SOURCE_ATTEMPTS = 3
 
+# Estas tres familias forman el núcleo mínimo de la base colombiana. Una ausencia de
+# observaciones en cualquier otra serie puede obedecer a que la fuente la publica con
+# rezago o a que la variable todavía no existía en parte de la historia. Esas ausencias
+# deben quedar trazadas como cobertura parcial, pero no impedir por sí solas que el
+# usuario descargue las series oficiales que sí están disponibles.
+COLOMBIA_REQUIRED_SERIES = {
+    "col_demanda_gwh_mes": "Demanda nacional (DemaSIN)",
+    "col_precio_bolsa_cop_kwh": "Precio de bolsa nacional (PrecBolsNaci)",
+    "col_generacion_total_gwh_mes": "Generación nacional (Gene/Recurso)",
+}
+
+_NO_COVERAGE_MARKERS = (
+    "no devolvió observaciones",
+    "no hay observaciones",
+    "no contiene observaciones",
+    "no publicó observaciones",
+)
+
 
 @dataclass(frozen=True)
 class ProgressEvent:
@@ -62,6 +80,35 @@ class BuildResult:
     @property
     def ok(self) -> bool:
         return not self.errors and not self.data.empty
+
+
+def _classify_colombia_completion(
+    data: pd.DataFrame,
+    errors: list[str],
+) -> tuple[list[str], list[str]]:
+    """Separa fallas reales de ausencias de cobertura en series complementarias.
+
+    Los errores de conexión, contrato, escritura o transformación siempre continúan siendo
+    bloqueantes. Únicamente se reclasifican mensajes explícitos de ausencia de observaciones y,
+    aun así, el paquete exige demanda, precio de bolsa y generación nacional.
+    """
+
+    blocking: list[str] = []
+    coverage: list[str] = []
+    for message in errors:
+        lowered = str(message).casefold()
+        if any(marker in lowered for marker in _NO_COVERAGE_MARKERS):
+            coverage.append("Cobertura parcial (no bloqueante): " + str(message))
+        else:
+            blocking.append(str(message))
+
+    available = set(data.get("series_id", pd.Series(dtype="string")).dropna().astype(str))
+    for series_id, label in COLOMBIA_REQUIRED_SERIES.items():
+        if series_id not in available:
+            blocking.append(
+                f"Serie esencial ausente: {label}. No se puede publicar una base sin esta serie."
+            )
+    return blocking, coverage
 
 
 @dataclass(frozen=True)
@@ -987,6 +1034,8 @@ class ColombiaMonthlyBuilder:
         if history is not None:
             catalogs["Recursos XM"] = history.resource_catalog
             validation = history.validation
+        errors, coverage_warnings = _classify_colombia_completion(data, errors)
+        warnings.extend(coverage_warnings)
         return BuildResult(
             country="COL",
             data=data,

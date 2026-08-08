@@ -1,11 +1,11 @@
-# Informe de validación v1.3.1
+# Informe de validación v1.3.2
 
 Fecha: 8 de agosto de 2026.
 
 ## Resultado
 
 - Lint: `ruff check .` sin hallazgos.
-- Pruebas locales: 57 aprobadas.
+- Pruebas locales: 60 aprobadas; 3 contratos externos excluidos del chequeo local.
 - Contratos vivos: REData y OMIE aprobados; XM respondió 502 después de agotar reintentos. Los tres
   contratos habían sido aprobados en la validación v1.1.0.
 - Smoke de Streamlit: página inicial cargada sin excepciones en modo local.
@@ -16,6 +16,11 @@ Fecha: 8 de agosto de 2026.
 - Empaquetado mensual: Parquet, Excel, JSON y ZIP aprobados con datos sintéticos trazables.
 - Persistencia de descarga: el flujo completo **Construir la primera base** termina con ZIP y una
   sesión nueva vuelve a mostrar su descarga sin depender de `session_state`.
+- Cierre visible: **0/5** y **1/5–5/5** permanecen renderizados; un error previo al empaquetado deja
+  las cinco fases como pendientes y muestra el motivo bloqueante.
+- Compatibilidad: `app.py` detiene la ejecución antes de importar `came` cuando Python no es 3.12.
+  Las páginas y exportadores se cargan de manera diferida para reducir importaciones durante una
+  recarga del despliegue.
 - Compatibilidad: se detecta un paquete completo guardado por la versión 1.3.0, cuando todavía
   existe en la instancia, antes de obligar a repetir la descarga histórica.
 - Memoria: Parquet, Excel, JSON y ZIP se escriben por etapas en disco; la pantalla carga de forma

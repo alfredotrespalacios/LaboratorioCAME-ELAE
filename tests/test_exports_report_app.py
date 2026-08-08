@@ -311,12 +311,65 @@ page.page_data_maintenance(1)
     assert "Descargar ZIP listo para GitHub" in [
         button.label for button in app.get("download_button")
     ]
+    rendered_text = "\n".join(
+        str(element.value)
+        for element_type in ("markdown", "info", "success", "caption")
+        for element in app.get(element_type)
+    )
+    for phase in ("0/5", "1/5", "2/5", "3/5", "4/5", "5/5"):
+        assert phase in rendered_text
 
     fresh_app = AppTest.from_string(script, default_timeout=30).run()
     assert not fresh_app.exception
     assert "Descargar ZIP listo para GitHub" in [
         button.label for button in fresh_app.get("download_button")
     ]
+
+
+def test_data_maintenance_explains_why_packaging_did_not_start() -> None:
+    script = """
+import pandas as pd
+from came.data.maintenance import BuildResult
+from came.ui.pages.data_maintenance import _create_download_package, _show_result
+
+result = BuildResult(
+    country="COL",
+    data=pd.DataFrame({"value": [1.0]}),
+    status=pd.DataFrame(),
+    errors=["XM respondió 502"],
+)
+package = _create_download_package(
+    result,
+    country="COL",
+    build_id="blocking-error",
+    additional_sheets={},
+    build_notes=[],
+)
+_show_result(
+    {
+        "status": result.status,
+        "warnings": result.warnings,
+        "errors": result.errors,
+        "package_directory": None,
+        "country": "COL",
+    },
+    "blocking_error",
+)
+"""
+
+    app = AppTest.from_string(script, default_timeout=30).run()
+
+    assert not app.exception
+    rendered_text = "\n".join(
+        str(element.value)
+        for element_type in ("markdown", "caption", "error")
+        for element in app.get(element_type)
+    )
+    assert "0/5" in rendered_text
+    for phase in ("1/5", "2/5", "3/5", "4/5", "5/5"):
+        assert phase in rendered_text
+    assert "El empaquetado NO comenzó" in rendered_text
+    assert not app.get("download_button")
 
 
 def test_result_is_saved_for_the_report_only_after_clicking_the_button() -> None:

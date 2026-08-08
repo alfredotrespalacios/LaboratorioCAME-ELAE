@@ -11,8 +11,6 @@ import pandas as pd
 import streamlit as st
 
 from came.config import APP_SUBTITLE, APP_TITLE, APP_VERSION, AppSettings
-from came.exports import build_excel, build_pdf, plotly_png
-from came.report import make_package
 
 HISTORY_START = date(2000, 1, 1)
 
@@ -231,6 +229,12 @@ def export_and_collect(
     key: str,
 ) -> None:
     """Entrega archivos homogéneos y permite guardar el resultado de forma explícita."""
+
+    # Estas dependencias se necesitan únicamente al abrir un módulo que exporta resultados. La
+    # carga diferida reduce el trabajo del arranque y evita importaciones a medio completar durante
+    # una actualización del despliegue.
+    from came.exports import build_excel, build_pdf, plotly_png
+    from came.report import make_package
 
     warnings = warnings or []
     package = make_package(

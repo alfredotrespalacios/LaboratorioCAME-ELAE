@@ -2,7 +2,7 @@
 
 ## Estado actual
 
-- Versión 1.3.1 implementada y validada localmente.
+- Versión 1.3.2 implementada y validada localmente.
 - La Introducción es la primera página y explica módulos, ruta de uso, propiedad y alcance académico.
 - Los 19 módulos están incorporados en la navegación definitiva.
 - Los cinco casos de estudio permanecen como marcadores aprobados, sin contenido ficticio.
@@ -21,10 +21,12 @@
 - La aplicación no usa una base de datos externa: publica Parquet, catálogo Excel y JSON en GitHub.
 - Las pruebas de integración se separan de las unitarias para distinguir fallas de código de
   indisponibilidad temporal de una fuente externa.
+- El despliegue exige Python 3.12 antes de importar los módulos de la aplicación y las páginas se
+  cargan únicamente cuando el usuario las abre.
 
 ## Verificaciones cerradas
 
-- Lint, 57 pruebas locales y smoke de Streamlit aprobados el 8 de agosto de 2026.
+- Lint, 60 pruebas locales y smoke de Streamlit aprobados el 8 de agosto de 2026.
 - Los tres contratos vivos fueron aprobados en la validación v1.1.0; la v1.2.0 no los repitió en
   este entorno restringido.
 - Balance y curva contrastados con los Excel recibidos.
@@ -35,6 +37,9 @@
 - Una prueba de interfaz ejecuta **Construir la primera base**, comprueba el botón del ZIP y crea
   una segunda sesión que recupera la misma descarga. La versión anterior solo probaba un paquete
   preparado de antemano y por eso no cubría el cierre real reportado.
+- El cierre conserva visibles **0/5** y las cinco fases. Un error bloqueante muestra en **0/5** por
+  qué no comenzó el empaquetado; una ausencia de cobertura complementaria no se confunde con una
+  caída de la fuente.
 - Las carpetas temporales de avance y del paquete se recrean antes de cada escritura. Limpiar
   avances o perder una carpeta temporal durante una ejecución ya no bloquea el siguiente bloque.
 - Rendimientos simple/logarítmico, exclusión del último día incompleto, reintentos de bloques y
@@ -48,3 +53,6 @@
   costos marginales, demanda por barra y generación por tecnología.
 - La primera base histórica completa todavía debe ejecutarse desde Streamlit en un entorno con
   acceso a las fuentes oficiales; este entorno de desarrollo no conserva una conexión viva a XM.
+- El registro real recibido el 8 de agosto mostró Python 3.14.7 y fallos repetidos de importación
+  durante recargas. Una instancia existente debe eliminarse y volver a desplegarse con Python 3.12;
+  actualizar archivos en GitHub no cambia la versión de Python de la instancia.

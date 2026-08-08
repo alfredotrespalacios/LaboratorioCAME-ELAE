@@ -25,14 +25,18 @@ puede construir la primera base, agregar meses, recalcular un periodo, reanudar 
 validar el resultado y descargar el ZIP listo para GitHub. No es un módulo de análisis y no se
 utiliza durante la operación normal.
 
-Al terminar las fuentes, Mantenimiento muestra cinco fases adicionales: validación, Parquet,
-catálogo Excel, compresión y publicación. Los archivos se escriben directamente en disco para no
+Al terminar las fuentes, Mantenimiento deja visibles **0/5** y las cinco fases adicionales:
+validación, Parquet, catálogo Excel, compresión y publicación. Las cinco filas aparecen desde el
+inicio como pendientes y cambian a completadas sin desaparecer. Los archivos se escriben
+directamente en disco para no
 duplicar toda la historia en memoria. El ZIP se declara listo únicamente después de verificar su
 manifiesto; la pantalla vuelve a encontrarlo aunque se pierdan la sesión o un `rerun` completo.
 También reconoce paquetes creados por la versión 1.3.0 mientras continúen en la misma instancia.
 La descarga principal carga solo el ZIP; los archivos individuales se habilitan bajo petición para
-reducir memoria. Si una fuente falla, la pantalla indica explícitamente que no creó el ZIP y permite
-reanudar únicamente los bloques pendientes.
+reducir memoria. Si existe un error bloqueante, **0/5** indica explícitamente por qué no comenzó el
+empaquetado y permite reanudar únicamente los bloques pendientes. La ausencia explícita de una
+serie complementaria todavía no publicada queda como advertencia de cobertura; demanda, precio de
+bolsa y generación nacional continúan siendo obligatorios.
 
 ## Bases mensuales publicadas
 
@@ -95,8 +99,10 @@ marginal de `2.2 Modelo rápido fundamental spot.xlsx`.
 1. Cree un repositorio vacío en GitHub.
 2. Desde esta carpeta ejecute los comandos de [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 3. En Streamlit Community Cloud seleccione el repositorio, la rama y `app.py`.
-4. Pegue los secretos en la consola de Streamlit; no cree `secrets.toml` en GitHub.
-5. Ejecute `make live-check` antes y después de publicar.
+4. En **Advanced settings**, seleccione **Python 3.12**. La aplicación se detiene antes de cargar
+   módulos si la instancia usa otra versión.
+5. Pegue los secretos en la consola de Streamlit; no cree `secrets.toml` en GitHub.
+6. Ejecute `make live-check` antes y después de publicar.
 
 La aplicación no necesita base de datos externa. Consulta bajo demanda, utiliza caché temporal y
 lee los Parquet mensuales publicados en GitHub. Los resultados de sesión y la canasta del informe

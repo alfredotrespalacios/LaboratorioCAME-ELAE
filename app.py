@@ -4,9 +4,29 @@ from __future__ import annotations
 
 import sys
 from functools import partial
+from importlib import import_module
 from pathlib import Path
 
 import streamlit as st
+
+st.set_page_config(
+    page_title="Laboratorio CAME · ELAE",
+    page_icon="⚡",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# Community Cloud conserva la versión de Python elegida al crear el despliegue. El proyecto se
+# valida con Python 3.12; detenerse aquí evita iniciar una descarga histórica en una instancia que
+# luego falle durante una recarga con módulos parcialmente importados.
+if sys.version_info[:2] != (3, 12):
+    st.error(
+        "Entorno incompatible: esta instalación usa Python "
+        f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}. "
+        "Laboratorio CAME 1.3.2 requiere Python 3.12. Cambie la versión del despliegue antes de "
+        "construir o actualizar bases históricas."
+    )
+    st.stop()
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 SRC_ROOT = PROJECT_ROOT / "src"
@@ -19,30 +39,16 @@ from came.ui.components import (  # noqa: E402
     authentication_gate,
     settings_from_streamlit,
 )
-from came.ui.pages.base_integrated import page_integrated  # noqa: E402
-from came.ui.pages.case_studies import page_case_study  # noqa: E402
-from came.ui.pages.chile import page_chile  # noqa: E402
-from came.ui.pages.data_maintenance import page_data_maintenance  # noqa: E402
-from came.ui.pages.demand_national import page_demand  # noqa: E402
-from came.ui.pages.energy_balance import page_balance  # noqa: E402
-from came.ui.pages.executive_report import page_report  # noqa: E402
-from came.ui.pages.generation_resource import page_generation_resource  # noqa: E402
-from came.ui.pages.generation_technology import page_generation_technology  # noqa: E402
-from came.ui.pages.introduction import page_introduction  # noqa: E402
-from came.ui.pages.modeling_forecast import page_modeling  # noqa: E402
-from came.ui.pages.offer_curve import page_offer_curve  # noqa: E402
-from came.ui.pages.portfolio_montecarlo import page_portfolio  # noqa: E402
-from came.ui.pages.price_spot import page_spot  # noqa: E402
-from came.ui.pages.sarima_garch import page_volatility  # noqa: E402
-from came.ui.pages.spain import page_spain  # noqa: E402
-from came.ui.pages.xm_explorer import page_xm_explorer  # noqa: E402
 
-st.set_page_config(
-    page_title="Laboratorio CAME · ELAE",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+
+def _run_page(module_name: str, function_name: str, *args: object) -> None:
+    """Carga únicamente el módulo seleccionado por el usuario."""
+
+    module = import_module(f"came.ui.pages.{module_name}")
+    function = getattr(module, function_name)
+    function(*args)
+
+
 apply_theme()
 settings = settings_from_streamlit()
 if not authentication_gate(settings):
@@ -57,7 +63,7 @@ navigation = st.navigation(
     {
         "Inicio": [
             st.Page(
-                page_introduction,
+                partial(_run_page, "introduction", "page_introduction"),
                 title="Introducción",
                 url_path="introduccion",
                 default=True,
@@ -65,55 +71,102 @@ navigation = st.navigation(
         ],
         "Colombia": [
             st.Page(
-                partial(page_spot, settings.request_timeout_seconds),
+                partial(
+                    _run_page,
+                    "price_spot",
+                    "page_spot",
+                    settings.request_timeout_seconds,
+                ),
                 title="1. Precio de bolsa",
                 url_path="precio-bolsa",
             ),
             st.Page(
-                partial(page_demand, settings.request_timeout_seconds),
+                partial(
+                    _run_page,
+                    "demand_national",
+                    "page_demand",
+                    settings.request_timeout_seconds,
+                ),
                 title="2. Demanda nacional",
                 url_path="demanda",
             ),
             st.Page(
-                partial(page_generation_technology, settings.request_timeout_seconds),
+                partial(
+                    _run_page,
+                    "generation_technology",
+                    "page_generation_technology",
+                    settings.request_timeout_seconds,
+                ),
                 title="3. Generación por tecnología",
                 url_path="generacion-tecnologia",
             ),
             st.Page(
-                partial(page_generation_resource, settings.request_timeout_seconds),
+                partial(
+                    _run_page,
+                    "generation_resource",
+                    "page_generation_resource",
+                    settings.request_timeout_seconds,
+                ),
                 title="4. Generación por recurso",
                 url_path="generacion-recurso",
             ),
             st.Page(
-                partial(page_xm_explorer, settings.request_timeout_seconds),
+                partial(
+                    _run_page,
+                    "xm_explorer",
+                    "page_xm_explorer",
+                    settings.request_timeout_seconds,
+                ),
                 title="5. Explorador XM",
                 url_path="explorador-xm",
             ),
             st.Page(
-                partial(page_integrated, settings.request_timeout_seconds),
+                partial(
+                    _run_page,
+                    "base_integrated",
+                    "page_integrated",
+                    settings.request_timeout_seconds,
+                ),
                 title="6. Base integrada",
                 url_path="base-integrada",
             ),
             st.Page(
-                partial(page_balance, settings.request_timeout_seconds),
+                partial(
+                    _run_page,
+                    "energy_balance",
+                    "page_balance",
+                    settings.request_timeout_seconds,
+                ),
                 title="7. Balance energético",
                 url_path="balance",
             ),
             st.Page(
-                partial(page_offer_curve, settings.request_timeout_seconds),
+                partial(
+                    _run_page,
+                    "offer_curve",
+                    "page_offer_curve",
+                    settings.request_timeout_seconds,
+                ),
                 title="8. Curva de oferta",
                 url_path="curva-oferta",
             ),
         ],
         "Otros mercados": [
             st.Page(
-                partial(page_spain, settings.request_timeout_seconds),
+                partial(
+                    _run_page,
+                    "spain",
+                    "page_spain",
+                    settings.request_timeout_seconds,
+                ),
                 title="9. España",
                 url_path="espana",
             ),
             st.Page(
                 partial(
-                    page_chile,
+                    _run_page,
+                    "chile",
+                    "page_chile",
                     settings.request_timeout_seconds,
                     settings.chile_costs_url,
                     settings.chile_demand_url,
@@ -123,45 +176,66 @@ navigation = st.navigation(
             ),
         ],
         "Análisis y modelación": [
-            st.Page(page_modeling, title="11. Modelación y pronóstico", url_path="modelacion"),
-            st.Page(page_volatility, title="12. SARIMA–GARCH", url_path="sarima-garch"),
+            st.Page(
+                partial(_run_page, "modeling_forecast", "page_modeling"),
+                title="11. Modelación y pronóstico",
+                url_path="modelacion",
+            ),
+            st.Page(
+                partial(_run_page, "sarima_garch", "page_volatility"),
+                title="12. SARIMA–GARCH",
+                url_path="sarima-garch",
+            ),
         ],
         "Estructuración de portafolios": [
-            st.Page(page_portfolio, title="13. Monte Carlo", url_path="portafolio"),
+            st.Page(
+                partial(_run_page, "portfolio_montecarlo", "page_portfolio"),
+                title="13. Monte Carlo",
+                url_path="portafolio",
+            ),
         ],
         "Casos de estudio": [
             st.Page(
-                partial(page_case_study, 14),
+                partial(_run_page, "case_studies", "page_case_study", 14),
                 title="14. Caso de estudio 1",
                 url_path="caso-estudio-1",
             ),
             st.Page(
-                partial(page_case_study, 15),
+                partial(_run_page, "case_studies", "page_case_study", 15),
                 title="15. Caso de estudio 2",
                 url_path="caso-estudio-2",
             ),
             st.Page(
-                partial(page_case_study, 16),
+                partial(_run_page, "case_studies", "page_case_study", 16),
                 title="16. Caso de estudio 3",
                 url_path="caso-estudio-3",
             ),
             st.Page(
-                partial(page_case_study, 17),
+                partial(_run_page, "case_studies", "page_case_study", 17),
                 title="17. Caso de estudio 4",
                 url_path="caso-estudio-4",
             ),
             st.Page(
-                partial(page_case_study, 18),
+                partial(_run_page, "case_studies", "page_case_study", 18),
                 title="18. Caso de estudio 5",
                 url_path="caso-estudio-5",
             ),
         ],
         "Informe": [
-            st.Page(page_report, title="19. Informe ejecutivo", url_path="informe"),
+            st.Page(
+                partial(_run_page, "executive_report", "page_report"),
+                title="19. Informe ejecutivo",
+                url_path="informe",
+            ),
         ],
         "Mantenimiento": [
             st.Page(
-                partial(page_data_maintenance, settings.request_timeout_seconds),
+                partial(
+                    _run_page,
+                    "data_maintenance",
+                    "page_data_maintenance",
+                    settings.request_timeout_seconds,
+                ),
                 title="Mantenimiento de datos",
                 url_path="mantenimiento-datos",
             ),

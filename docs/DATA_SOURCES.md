@@ -34,5 +34,8 @@ los valores ausentes quedan como `NaN` visibles.
 - España integra REData mensual y promedios mensuales del precio diario OMIE.
 - Chile exige exportaciones oficiales de costos marginales, demanda por barra y generación por
   tecnología; el precio mensual se pondera por demanda.
-- Una fuente con error bloquea el ZIP. Los bloques correctos quedan disponibles para reanudar en la
-  misma instancia de Streamlit.
+- Una falla de conexión, contrato, transformación o escritura bloquea el ZIP. Los bloques correctos
+  quedan disponibles para reanudar en la misma instancia de Streamlit.
+- La ausencia explícita de observaciones en una serie complementaria se conserva como advertencia
+  de cobertura y no bloquea por sí sola. Colombia nunca publica el ZIP si faltan demanda nacional,
+  precio de bolsa o generación nacional.

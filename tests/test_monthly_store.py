@@ -7,7 +7,12 @@ from zipfile import ZipFile
 import pandas as pd
 import pytest
 
-from came.data.maintenance import COLOMBIA_TASKS, CheckpointStore, ColombiaMonthlyBuilder
+from came.data.maintenance import (
+    COLOMBIA_TASKS,
+    CheckpointStore,
+    ColombiaMonthlyBuilder,
+    _classify_colombia_completion,
+)
 from came.data.monthly_store import (
     LONG_COLUMNS,
     _write_bytes_atomically,
@@ -178,6 +183,39 @@ def test_merge_replaces_same_series_and_month_and_wide_keeps_series() -> None:
     assert len(merged) == 1
     assert merged.loc[0, "value"] == pytest.approx(3.0)
     assert to_wide(merged, "COL").loc[0, "col_test"] == pytest.approx(3.0)
+
+
+def test_missing_coverage_in_a_complementary_series_does_not_block_package() -> None:
+    data = pd.DataFrame(
+        [
+            monthly_row("2024-01-01", 1.0, "col_demanda_gwh_mes"),
+            monthly_row("2024-01-01", 2.0, "col_precio_bolsa_cop_kwh"),
+            monthly_row("2024-01-01", 3.0, "col_generacion_total_gwh_mes"),
+        ]
+    )
+
+    blocking, coverage = _classify_colombia_completion(
+        data,
+        ["ONI · 2024-01-01 a 2024-01-31: no hay observaciones dentro del periodo solicitado."],
+    )
+
+    assert not blocking
+    assert len(coverage) == 1
+    assert "no bloqueante" in coverage[0]
+
+
+def test_missing_an_essential_series_always_blocks_package() -> None:
+    data = pd.DataFrame(
+        [
+            monthly_row("2024-01-01", 1.0, "col_demanda_gwh_mes"),
+            monthly_row("2024-01-01", 2.0, "col_precio_bolsa_cop_kwh"),
+        ]
+    )
+
+    blocking, coverage = _classify_colombia_completion(data, [])
+
+    assert not coverage
+    assert any("Generación nacional" in message for message in blocking)
 
 
 class FakeXM:

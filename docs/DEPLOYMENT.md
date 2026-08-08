@@ -40,6 +40,10 @@ Solo `.streamlit/secrets.toml.example` debe estar versionado. El archivo real
 
 ## 3. Streamlit Community Cloud
 
+> **Obligatorio:** Laboratorio CAME 1.3.2 se valida y se ejecuta con Python 3.12. El archivo
+> `runtime.txt` no sustituye la selección del entorno en Community Cloud. Si el registro muestra
+> otra versión, la aplicación se detiene antes de permitir una construcción histórica.
+
 1. Abra `share.streamlit.io` e inicie una aplicación nueva.
 2. Seleccione el repositorio, la rama `main` y el archivo `app.py`.
 3. En **Advanced settings**, seleccione **Python 3.12**.
@@ -60,6 +64,14 @@ REQUEST_TIMEOUT_SECONDS = 45
 ```
 
 6. Despliegue y abra la URL. Debe aparecer el formulario de acceso antes de la navegación.
+
+### Cambiar una aplicación existente que usa otra versión de Python
+
+Community Cloud no cambia Python dentro de un despliegue ya creado. Antes de eliminarlo, anote el
+subdominio, repositorio, rama, archivo `app.py` y copie los secretos. Después elimine únicamente la
+aplicación de Community Cloud —no el repositorio de GitHub—, vuelva a crearla con las mismas
+coordenadas y el mismo subdominio, abra **Advanced settings**, seleccione **Python 3.12** y restaure
+los secretos. Compruebe en el primer registro de arranque que aparezca `Using Python 3.12`.
 
 Para revocar todas las sesiones compartidas, cambie `ACCESS_VERSION` y reinicie la aplicación.
 Para cambiar únicamente la credencial, cambie también `ACCESS_PASSWORD`.
@@ -83,6 +95,8 @@ Para cambiar únicamente la credencial, cambie también `ACCESS_PASSWORD`.
 - Los bloques de mantenimiento se conservan temporalmente para reanudar en la misma instancia.
 - No publique cambios en GitHub ni reinicie la aplicación durante una construcción histórica;
   espere hasta que aparezca **Descargar ZIP listo para GitHub**.
+- El cierre muestra permanentemente **0/5** y las fases **1/5–5/5**. Si hay un error bloqueante,
+  las cinco fases permanecen visibles como pendientes y **0/5** explica por qué no comenzaron.
 - Streamlit Community Cloud no garantiza la permanencia del disco local después de un reinicio
   total. Descargue el ZIP apenas aparezca y publique sus tres archivos juntos en GitHub.
 - Los archivos chilenos se procesan en memoria; solo el paquete descargado se publica en GitHub.

@@ -32,6 +32,14 @@ OPERATION_UPDATE = "Agregar meses faltantes"
 OPERATION_BUILD = "Construir la primera base"
 OPERATION_RECALCULATE = "Recalcular un periodo"
 
+PACKAGE_PHASES = (
+    "1/5 · Validando la estructura y la cobertura mensual…",
+    "2/5 · Escribiendo el Parquet mensual en disco…",
+    "3/5 · Construyendo el catálogo Excel…",
+    "4/5 · Comprimiendo el ZIP descargable…",
+    "5/5 · Publicando el paquete terminado…",
+)
+
 
 def _load_existing(country: str) -> tuple[pd.DataFrame, dict[str, object], str | None]:
     try:
@@ -158,7 +166,8 @@ def _show_result(state: dict[str, object], key: str) -> None:
             st.warning(warning)
     if errors:
         st.error(
-            "La ejecución terminó, pero NO se creó el ZIP porque una o más fuentes fallaron. "
+            f"La ejecución terminó, pero NO se creó el ZIP: quedaron {len(errors)} "
+            "error(es) bloqueante(s). "
             "Los bloques aprobados quedaron guardados "
             "temporalmente. Pulse de nuevo con la misma operación y el mismo periodo: "
             "la aplicación reutilizará los bloques aprobados y reintentará únicamente los pendientes."
@@ -238,11 +247,37 @@ def _create_download_package(
     additional_sheets: dict[str, pd.DataFrame],
     build_notes: list[str],
 ) -> StoredMonthlyPackage | None:
-    """Empaqueta en disco y muestra cada fase que ocurre después de descargar las fuentes."""
+    """Empaqueta en disco y deja un registro visible de todo el cierre."""
 
-    if not result.ok:
+    phase = st.container(border=True)
+    phase.markdown("**Cierre de la construcción**")
+    phase.write("0/5 · Las consultas terminaron. Comprobando si el paquete puede crearse…")
+    phase_slots = [phase.empty() for _ in PACKAGE_PHASES]
+    for slot, label in zip(phase_slots, PACKAGE_PHASES, strict=True):
+        slot.caption(label + " · Pendiente")
+
+    current_phase = 0
+
+    def show_phase(message: str) -> None:
+        nonlocal current_phase
+        try:
+            current_phase = int(message.split("/", maxsplit=1)[0])
+        except (TypeError, ValueError):
+            phase.write(message)
+            return
+        if 1 <= current_phase <= len(phase_slots):
+            phase_slots[current_phase - 1].info(message)
+
+    if result.errors:
+        phase.error(
+            f"El empaquetado NO comenzó: quedaron {len(result.errors)} error(es) bloqueante(s). "
+            "Los avances aprobados se conservaron para reintentar solo lo pendiente."
+        )
         return None
-    phase = st.empty()
+    if result.data.empty:
+        result.errors.append("La consulta terminó sin observaciones válidas para empaquetar.")
+        phase.error("El empaquetado NO comenzó porque la base resultante está vacía.")
+        return None
     try:
         output = allocate_ready_package_directory(country, build_id)
         package = create_stored_monthly_package(
@@ -251,13 +286,19 @@ def _create_download_package(
             output,
             additional_sheets=additional_sheets,
             build_notes=build_notes,
-            progress=phase.info,
+            progress=show_phase,
         )
         result.data = pd.DataFrame(columns=LONG_COLUMNS)
-        phase.success("Paquete terminado y verificado. Preparando el botón de descarga…")
+        for slot, label in zip(phase_slots, PACKAGE_PHASES, strict=True):
+            slot.success(label + " · Completado")
+        phase.success("5/5 · Paquete terminado y verificado. El botón de descarga está debajo.")
         return package
     except Exception as exc:
         result.errors.append(f"Empaquetado final: {exc}")
+        if 1 <= current_phase <= len(phase_slots):
+            phase_slots[current_phase - 1].error(
+                PACKAGE_PHASES[current_phase - 1] + f" · Error: {exc}"
+            )
         phase.error("La consulta terminó, pero el empaquetado final falló.")
         return None
 
