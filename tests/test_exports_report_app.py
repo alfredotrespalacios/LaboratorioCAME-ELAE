@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from io import BytesIO
 from pathlib import Path
 
@@ -252,6 +253,7 @@ def test_first_base_flow_finishes_with_zip_and_a_new_session_recovers_it(
 from types import SimpleNamespace
 
 import pandas as pd
+import streamlit as st
 import came.ui.pages.data_maintenance as page
 from came.data.maintenance import BuildResult
 from came.data.monthly_store import LONG_COLUMNS
@@ -282,6 +284,7 @@ class FakeBuilder:
         pass
 
     def build(self, *args, **kwargs):
+        st.session_state["captured_selected_options"] = kwargs.get("selected_options")
         return BuildResult(
             country="COL",
             data=pd.DataFrame([row]),
@@ -294,7 +297,13 @@ page.page_data_maintenance(1)
 """
     app = AppTest.from_string(script, default_timeout=30).run()
     operation = next(radio for radio in app.radio if radio.label == "Operación para Colombia")
-    operation.set_value("Construir la primera base").run()
+    app = operation.set_value("Construir la primera base").run()
+    selection = next(
+        multiselect
+        for multiselect in app.multiselect
+        if multiselect.label == "Canasta CAME preseleccionada"
+    )
+    app = selection.set_value(["demand"]).run()
     confirmation = next(
         checkbox
         for checkbox in app.checkbox
@@ -308,6 +317,7 @@ page.page_data_maintenance(1)
     run_button.click().run()
 
     assert not app.exception
+    assert app.session_state["captured_selected_options"] == {"demand"}
     assert "Descargar ZIP listo para GitHub" in [
         button.label for button in app.get("download_button")
     ]
@@ -324,6 +334,29 @@ page.page_data_maintenance(1)
     assert "Descargar ZIP listo para GitHub" in [
         button.label for button in fresh_app.get("download_button")
     ]
+
+
+def test_first_base_initial_date_allows_the_end_of_the_previous_year(monkeypatch) -> None:
+    import came.ui.pages.data_maintenance as page
+
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    def fake_date_input(label: str, **kwargs):
+        calls.append((label, kwargs))
+        return kwargs["value"]
+
+    monkeypatch.setattr(page.st, "date_input", fake_date_input)
+    page._period_controls(
+        "COL",
+        page.OPERATION_BUILD,
+        pd.DataFrame(),
+        default_start=date(2000, 1, 1),
+        key="date_range_test",
+    )
+
+    first_call = next(call for call in calls if call[0] == "Fecha inicial de la historia")
+    assert first_call[1]["min_value"] == date(2000, 1, 1)
+    assert first_call[1]["max_value"] == date(date.today().year - 1, 12, 31)
 
 
 def test_data_maintenance_explains_why_packaging_did_not_start() -> None:

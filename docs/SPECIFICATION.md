@@ -1,4 +1,4 @@
-# Laboratorio CAME — especificación funcional v1.4
+# Laboratorio CAME — especificación funcional v1.4.1
 
 Fecha de consolidación: 8 de agosto de 2026.
 
@@ -78,6 +78,9 @@ excepcionalmente para preparar los archivos que después se publican juntos en c
 para Colombia, España y Chile bajo `datos_por_defecto/`.
 El empaquetado final se realiza por etapas en disco y debe ser recuperable sin `session_state`.
 La aplicación no anuncia que terminó hasta verificar el ZIP y presentar su botón de descarga.
+En Colombia, la canasta CAME es una selección inicial editable: ninguna variable es obligatoria,
+solo se consultan las fuentes necesarias para las variables que el usuario conserve seleccionadas
+y el ZIP no incorpora series de mercado no solicitadas.
 
 ## Reglas no negociables
 

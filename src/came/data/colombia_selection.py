@@ -42,9 +42,9 @@ THERMAL_TECHNOLOGIES = {"Gas", "Carbón", "ACPM", "Combustóleo", "Jet-A1", "GLP
 
 
 COLOMBIA_VARIABLE_OPTIONS = (
-    ColombiaVariableOption("demand", "Base CAME", "Demanda nacional", "XM · DemaSIN", "Total mensual y promedio diario.", required=True),
-    ColombiaVariableOption("spot_price", "Base CAME", "Precio de bolsa nacional", "XM · PrecBolsNaci", "Promedio simple mensual.", required=True),
-    ColombiaVariableOption("generation_national", "Base CAME", "Generación nacional", "XM · Gene/Recurso", "Total, hidráulica, térmica y otras.", required=True),
+    ColombiaVariableOption("demand", "Base CAME", "Demanda nacional", "XM · DemaSIN", "Total mensual y promedio diario."),
+    ColombiaVariableOption("spot_price", "Base CAME", "Precio de bolsa nacional", "XM · PrecBolsNaci", "Promedio simple mensual."),
+    ColombiaVariableOption("generation_national", "Base CAME", "Generación nacional", "XM · Gene/Recurso", "Total, hidráulica, térmica y otras."),
     ColombiaVariableOption("generation_technology", "Generación", "Generación por tecnología", "XM · Gene/Recurso", "Totales mensuales nacionales por tecnología."),
     ColombiaVariableOption("generation_companies", "Generación", "Empresas prioritarias", "XM · Gene/Recurso", "EPM, AES–Chivor, Enel, ISAGEN, Termoemcali, Termobarranquilla, Termotasajero, Celsia y Gecelca."),
     ColombiaVariableOption("generation_resources", "Generación", "Plantas prioritarias", "XM · Gene/Recurso", "Guatapé, Porce III, San Carlos, Termosierra y Termocentro."),

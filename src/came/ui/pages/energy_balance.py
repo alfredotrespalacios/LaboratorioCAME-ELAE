@@ -74,6 +74,29 @@ def page_balance(timeout: int) -> None:
         try:
             normal = calculate_balance(edited, demand_gwh_day=demand, factor_column="FP_normal")
             nino = calculate_balance(edited, demand_gwh_day=demand, factor_column="FP_nino")
+            comparison = normal.table[
+                ["Tecnología", "CEN_MW", "FP_normal", "Generación_disponible_GWh_día"]
+            ].rename(
+                columns={
+                    "Generación_disponible_GWh_día": "Disponibilidad_normal_GWh_día"
+                }
+            )
+            comparison["FP_nino"] = nino.table["FP_nino"].to_numpy()
+            comparison["Disponibilidad_Niño_GWh_día"] = nino.table[
+                "Generación_disponible_GWh_día"
+            ].to_numpy()
+            normal_total = comparison["Disponibilidad_normal_GWh_día"].sum()
+            nino_total = comparison["Disponibilidad_Niño_GWh_día"].sum()
+            comparison["Participación_normal_pct"] = (
+                comparison["Disponibilidad_normal_GWh_día"] / normal_total * 100
+                if normal_total > 0
+                else 0.0
+            )
+            comparison["Participación_Niño_pct"] = (
+                comparison["Disponibilidad_Niño_GWh_día"] / nino_total * 100
+                if nino_total > 0
+                else 0.0
+            )
             summary = pd.DataFrame(
                 [
                     {
@@ -100,6 +123,7 @@ def page_balance(timeout: int) -> None:
                 "summary": summary,
                 "normal": normal.table,
                 "nino": nino.table,
+                "comparison": comparison,
                 "inputs": edited.copy(),
                 "demand": demand,
                 "growth": growth,
@@ -115,6 +139,34 @@ def page_balance(timeout: int) -> None:
         return
     summary = result["summary"]
     st.dataframe(summary, width="stretch", hide_index=True)
+    st.subheader("Disponibilidad por tecnología")
+    st.caption(
+        "La disponibilidad se calcula para cada tecnología como CEN × factor de planta × 24 / 1.000."
+    )
+    st.dataframe(
+        result["comparison"],
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "CEN_MW": st.column_config.NumberColumn(
+                "Capacidad efectiva neta (MW)", format="%.2f"
+            ),
+            "FP_normal": st.column_config.NumberColumn("FP normal", format="%.3f"),
+            "Disponibilidad_normal_GWh_día": st.column_config.NumberColumn(
+                "Disponibilidad normal (GWh-día)", format="%.3f"
+            ),
+            "FP_nino": st.column_config.NumberColumn("FP El Niño", format="%.3f"),
+            "Disponibilidad_Niño_GWh_día": st.column_config.NumberColumn(
+                "Disponibilidad El Niño (GWh-día)", format="%.3f"
+            ),
+            "Participación_normal_pct": st.column_config.NumberColumn(
+                "Participación normal (%)", format="%.2f"
+            ),
+            "Participación_Niño_pct": st.column_config.NumberColumn(
+                "Participación El Niño (%)", format="%.2f"
+            ),
+        },
+    )
     fig = bars(
         summary, "Escenario", "Margen_pct", color="Escenario", title="Margen energético", unit="%"
     )
@@ -142,6 +194,7 @@ def page_balance(timeout: int) -> None:
             "Supuestos": result["inputs"],
             "Normal": result["normal"],
             "El Niño": result["nino"],
+            "Disponibilidad por tecnología": result["comparison"],
         },
         key="balance_energetico_colombia",
     )

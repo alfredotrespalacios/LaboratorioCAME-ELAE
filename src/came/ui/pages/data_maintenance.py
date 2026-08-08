@@ -318,8 +318,13 @@ def _period_controls(
     complete = last_complete_month().date()
     complete_end = (last_complete_month() + pd.offsets.MonthEnd()).date()
     if operation == OPERATION_BUILD:
+        latest_allowed_start = date(date.today().year - 1, 12, 31)
         start = st.date_input(
-            "Fecha inicial de la historia", value=default_start, key=f"{key}_start_build"
+            "Fecha inicial de la historia",
+            value=default_start,
+            min_value=default_start,
+            max_value=latest_allowed_start,
+            key=f"{key}_start_build",
         )
         end = st.date_input(
             "Último día a consultar",
@@ -383,7 +388,6 @@ def _colombia_section(timeout: int) -> None:
         row.Clave: f"{row.Grupo} · {row.Variable} · {row.Fuente}"
         for row in catalog.itertuples()
     }
-    required = set(catalog.loc[catalog["Obligatoria"], "Clave"].astype(str))
     selected = set(
         st.multiselect(
             "Canasta CAME preseleccionada",
@@ -393,13 +397,14 @@ def _colombia_section(timeout: int) -> None:
             key="maintenance_col_selection",
         )
     )
-    selected.update(required)
     st.caption(
-        "Demanda, precio de bolsa y generación nacional son obligatorias. Las demás series "
-        "pueden tener coberturas históricas diferentes y no bloquearán el paquete."
+        "Solo se consultarán y guardarán las variables que permanezcan seleccionadas. "
+        "Ninguna variable es obligatoria; las coberturas históricas pueden ser diferentes."
     )
     st.dataframe(
-        catalog.assign(Seleccionada=catalog["Clave"].isin(selected)),
+        catalog.assign(Seleccionada=catalog["Clave"].isin(selected)).drop(
+            columns="Obligatoria", errors="ignore"
+        ),
         hide_index=True,
         width="stretch",
     )
@@ -467,7 +472,13 @@ def _colombia_section(timeout: int) -> None:
                     "Catálogo XM",
                 )
             )
-    st.caption("La construcción usa las fuentes seleccionadas de XM, TRM y ONI según la canasta anterior.")
+    has_selection = bool(selected or extra_tasks)
+    if not has_selection:
+        st.warning("Seleccione al menos una variable antes de iniciar la construcción.")
+    else:
+        st.caption(
+            "La construcción consultará exclusivamente las fuentes requeridas por la selección anterior."
+        )
     confirm = st.checkbox(
         "Entiendo que la operación puede tardar y mantendré abierta esta pestaña.",
         key="maintenance_col_confirm",
@@ -488,7 +499,10 @@ def _colombia_section(timeout: int) -> None:
         else "Actualizar meses faltantes"
     )
     if period and st.button(
-        button_label, type="primary", disabled=not confirm, key="maintenance_col_run"
+        button_label,
+        type="primary",
+        disabled=not (confirm and has_selection),
+        key="maintenance_col_run",
     ):
         start, end, base, replace_start, replace_end = period
         build_id = f"COL_{operation}_{start}_{end}"

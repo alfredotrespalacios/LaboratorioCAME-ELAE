@@ -1,5 +1,14 @@
 # Historial de cambios
 
+## 1.4.1 — 2026-08-08
+
+- Corrige la construcción de la primera base: ninguna variable es obligatoria y solo se
+  consultan las variables seleccionadas por el usuario.
+- Conserva y recupera el ZIP descargable después de los reinicios de Streamlit.
+- Amplía el selector de fecha inicial hasta el último día del año anterior.
+- Añade CEN, factor de planta, disponibilidad en GWh-día y precio de oferta a la curva rápida.
+- Muestra la disponibilidad normal y de El Niño por tecnología en el balance energético.
+
 ## 1.4.0 — 2026-08-08
 
 - Nueva canasta colombiana preseleccionada y catálogo mensual completo descargable.

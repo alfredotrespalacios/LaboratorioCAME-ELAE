@@ -1,11 +1,11 @@
-# Informe de validación v1.4.0
+# Informe de validación v1.4.1
 
 Fecha: 8 de agosto de 2026.
 
 ## Resultado
 
 - Lint: `ruff check .` sin hallazgos.
-- Pruebas locales: 71 aprobadas; 3 contratos externos excluidos del chequeo local.
+- Pruebas locales: 77 aprobadas; 3 contratos externos excluidos del chequeo local.
 - Contratos vivos: se mantienen separados del cierre reproducible porque dependen de servicios
   externos; ejecútelos con `make live-check` antes y después de desplegar.
 - Smoke de Streamlit: página inicial cargada sin excepciones en modo local.
@@ -18,6 +18,10 @@ Fecha: 8 de agosto de 2026.
 - Empaquetado mensual: Parquet, Excel, JSON y ZIP aprobados con datos sintéticos trazables.
 - Persistencia de descarga: el flujo completo **Construir la primera base** termina con ZIP y una
   sesión nueva vuelve a mostrar su descarga sin depender de `session_state`.
+- Selección de variables: una construcción con solo demanda no consulta generación, recursos,
+  capacidad, TRM ni ONI; ninguna de esas series se exige para crear el paquete.
+- Fecha inicial: el selector permite elegir desde enero de 2000 hasta el último día del año
+  anterior al año en curso.
 - Cierre visible: **0/5** y **1/5–5/5** permanecen renderizados; un error previo al empaquetado deja
   las cinco fases como pendientes y muestra el motivo bloqueante.
 - Compatibilidad: `app.py` detiene la ejecución antes de importar `came` cuando Python no es 3.12.
@@ -81,5 +85,5 @@ demanda y generación; las pruebas validan los parsers y la ponderación. No afi
 automática inexistente.
 
 La carga histórica completa no forma parte del chequeo local. La aplicación deja visible el avance,
-guarda bloques temporales y solo habilita el ZIP cuando las series esenciales y las fases de
+guarda bloques temporales y solo habilita el ZIP cuando las variables seleccionadas y las fases de
 publicación terminan sin errores bloqueantes.

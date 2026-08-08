@@ -167,13 +167,69 @@ def test_joint_sensitivities_have_fifty_combinations() -> None:
     assert by_price["Precio contrato COP/kWh"].nunique() == 5
 
 
-def test_colombia_catalog_preselects_required_and_priority_series() -> None:
+def test_colombia_catalog_preselects_priority_series_without_mandatory_variables() -> None:
     catalog = selection_catalog()
     assert {"demand", "spot_price", "generation_national"}.issubset(DEFAULT_SELECTION)
-    assert catalog.loc[catalog["Obligatoria"], "Clave"].nunique() == 3
+    assert not catalog["Obligatoria"].any()
     assert is_recommended_series("col_generacion_empresa_epmg_gwh_mes", "Empresa", "EPMG")
     assert is_recommended_series("col_generacion_recurso_gtpe_gwh_mes", "Recurso", "GTPE")
     assert not is_recommended_series("col_generacion_recurso_otra_gwh_mes", "Recurso", "OTRA")
+
+
+def test_demand_only_build_does_not_query_generation_or_other_sources(monkeypatch) -> None:
+    builder = ColombiaMonthlyBuilder(xm_provider=SimpleNamespace())
+    demand = pd.DataFrame(
+        [
+            {
+                "datetime": pd.Timestamp("2024-01-01", tz="UTC"),
+                "country": "COL",
+                "family": "Demanda",
+                "level": "Sistema",
+                "entity_code": "SIN",
+                "entity_name": "Colombia",
+                "variable": "Demanda mensual",
+                "unit": "GWh",
+                "value": 7_000.0,
+                "source": "XM",
+                "dataset": "DemaSIN/Sistema",
+                "aggregation": "Suma de energía del mes",
+                "series_id": "col_demanda_gwh_mes",
+                "series_name": "Demanda nacional mensual",
+                "catalog_date": "2026-08-08",
+            }
+        ]
+    )
+    monkeypatch.setattr(
+        builder,
+        "_demand",
+        lambda *_args, **_kwargs: (
+            demand,
+            [{"Fuente": "XM", "Variable": "DemaSIN", "Estado": "Aprobado"}],
+            [],
+        ),
+    )
+
+    def unexpected_query(*_args, **_kwargs):
+        raise AssertionError("No debía consultarse una fuente no seleccionada")
+
+    monkeypatch.setattr(builder, "_generation", unexpected_query)
+    monkeypatch.setattr(builder, "_system_task", unexpected_query)
+    monkeypatch.setattr(builder, "_capacity", unexpected_query)
+    monkeypatch.setattr(builder, "_fuel_offer_prices", unexpected_query)
+    monkeypatch.setattr(builder, "_unserved", unexpected_query)
+    monkeypatch.setattr(builder, "_macro", unexpected_query)
+
+    result = builder.build(
+        "2024-01-01",
+        "2024-01-31",
+        selected_options={"demand"},
+        include_macro=True,
+    )
+
+    assert not result.errors
+    assert result.data["series_id"].str.startswith("col_generacion").sum() == 0
+    assert result.data["series_id"].eq("col_demanda_gwh_mes").any()
+    assert set(result.status["Variable"]) == {"DemaSIN"}
 
 
 def test_rolling_origin_evaluation_preserves_chronology() -> None:

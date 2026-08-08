@@ -204,7 +204,7 @@ def test_missing_coverage_in_a_complementary_series_does_not_block_package() -> 
     assert "no bloqueante" in coverage[0]
 
 
-def test_missing_an_essential_series_always_blocks_package() -> None:
+def test_completion_does_not_require_an_unselected_base_series() -> None:
     data = pd.DataFrame(
         [
             monthly_row("2024-01-01", 1.0, "col_demanda_gwh_mes"),
@@ -215,7 +215,7 @@ def test_missing_an_essential_series_always_blocks_package() -> None:
     blocking, coverage = _classify_colombia_completion(data, [])
 
     assert not coverage
-    assert any("Generación nacional" in message for message in blocking)
+    assert not blocking
 
 
 class FakeXM:

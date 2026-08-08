@@ -2,7 +2,7 @@
 
 ## Estado actual
 
-- Versión 1.4.0 implementada y validada localmente el 8 de agosto de 2026.
+- Versión 1.4.1 implementada y validada localmente el 8 de agosto de 2026.
 - Navegación definitiva: introducción, 19 módulos y mantenimiento técnico no numerado.
 - Base mensual de Colombia configurable, con canasta recomendada y catálogo completo para descarga.
 - Modelación supervisada y temporal con transformaciones, prueba cronológica, diagnósticos,
@@ -14,8 +14,8 @@
 ## Decisiones técnicas
 
 - Código analítico separado de Streamlit y conectores oficiales con salida canónica común.
-- Colombia conserva únicamente la canasta seleccionada para empresas, recursos y tecnologías; las
-  tres series esenciales —demanda, precio de bolsa y generación nacional— siempre se exigen.
+- Colombia consulta y conserva únicamente las variables elegidas por el usuario. La canasta CAME
+  es la selección inicial recomendada, pero ninguna serie es obligatoria.
 - La asociación recurso–empresa usa la vigencia histórica publicada cuando el catálogo de XM la
   expone; si solo existe una asignación, se usa la última oficial conocida.
 - El precio de oferta de gas y carbón se publica como promedio simple y ponderado por capacidad
@@ -28,7 +28,7 @@
 ## Verificaciones cerradas
 
 - `ruff check .` sin hallazgos y compilación completa de `app.py`, `src/` y `tests/`.
-- 71 pruebas locales aprobadas; 3 contratos vivos quedan separados mediante la marca `live`.
+- 77 pruebas locales aprobadas; 3 contratos vivos quedan separados mediante la marca `live`.
 - Smoke de la introducción y arranque directo de Modelación, Portafolios, Base integrada y
   Mantenimiento sin excepciones de Streamlit.
 - Balance y curva de oferta continúan contrastados con los Excel pedagógicos recibidos.

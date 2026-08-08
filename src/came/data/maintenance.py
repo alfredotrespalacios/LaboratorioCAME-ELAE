@@ -45,17 +45,6 @@ from came.errors import SourceUnavailableError
 ProgressCallback = Callable[["ProgressEvent"], None]
 MAX_SOURCE_ATTEMPTS = 3
 
-# Estas tres familias forman el núcleo mínimo de la base colombiana. Una ausencia de
-# observaciones en cualquier otra serie puede obedecer a que la fuente la publica con
-# rezago o a que la variable todavía no existía en parte de la historia. Esas ausencias
-# deben quedar trazadas como cobertura parcial, pero no impedir por sí solas que el
-# usuario descargue las series oficiales que sí están disponibles.
-COLOMBIA_REQUIRED_SERIES = {
-    "col_demanda_gwh_mes": "Demanda nacional (DemaSIN)",
-    "col_precio_bolsa_cop_kwh": "Precio de bolsa nacional (PrecBolsNaci)",
-    "col_generacion_total_gwh_mes": "Generación nacional (Gene/Recurso)",
-}
-
 _NO_COVERAGE_MARKERS = (
     "no devolvió observaciones",
     "no hay observaciones",
@@ -96,9 +85,9 @@ def _classify_colombia_completion(
 ) -> tuple[list[str], list[str]]:
     """Separa fallas reales de ausencias de cobertura en series complementarias.
 
-    Los errores de conexión, contrato, escritura o transformación siempre continúan siendo
-    bloqueantes. Únicamente se reclasifican mensajes explícitos de ausencia de observaciones y,
-    aun así, el paquete exige demanda, precio de bolsa y generación nacional.
+    Los errores de conexión, contrato, escritura o transformación continúan siendo
+    bloqueantes. Las ausencias explícitas de cobertura se documentan sin forzar series
+    que el usuario no haya seleccionado.
     """
 
     blocking: list[str] = []
@@ -110,12 +99,6 @@ def _classify_colombia_completion(
         else:
             blocking.append(str(message))
 
-    available = set(data.get("series_id", pd.Series(dtype="string")).dropna().astype(str))
-    for series_id, label in COLOMBIA_REQUIRED_SERIES.items():
-        if series_id not in available:
-            blocking.append(
-                f"Serie esencial ausente: {label}. No se puede publicar una base sin esta serie."
-            )
     return blocking, coverage
 
 
@@ -765,58 +748,68 @@ class ColombiaMonthlyBuilder:
             if not grouped_companies.empty:
                 add_level(grouped_companies, "Empresa", "group_code", "group_name")
 
-        # Los agregados hidráulica/térmica/otras permanecen disponibles aun cuando el usuario no
-        # guarde el detalle de todas las tecnologías.
-        national_group = history.by_resource.copy()
-        national_group["classification"] = np.select(
-            [
-                national_group["technology"].eq("Hidráulica"),
-                national_group["technology"].isin(THERMAL_TECHNOLOGIES),
-            ],
-            ["Hidráulica", "Térmica"],
-            default="Otras",
-        )
-        national_group = national_group.groupby(["datetime", "classification"], as_index=False)[
-            ["GWh_mes", "GWh_día"]
-        ].sum()
-        national_group["technology_code"] = "nacional_" + _slug_series(
-            national_group["classification"]
-        )
-        national_group["technology_name"] = "Nacional · " + national_group["classification"]
-        add_level(national_group, "Tecnología", "technology_code", "technology_name")
-        totals = history.by_resource.groupby("datetime", as_index=False)[
-            ["GWh_mes", "GWh_día"]
-        ].sum()
-        for value_column, unit, suffix, variable, label in (
-            ("GWh_mes", "GWh", "gwh_mes", "Generación mensual", "Generación nacional mensual"),
-            (
-                "GWh_día",
-                "GWh-día",
-                "gwh_dia",
-                "Generación promedio diario",
-                "Generación nacional promedio diario",
-            ),
-        ):
-            long_frames.append(
-                _long_rows(
-                    totals,
-                    country="COL",
-                    family="Generación",
-                    level="Sistema",
-                    entity_code="SIN",
-                    entity_name="Colombia",
-                    variable=variable,
-                    unit=unit,
-                    value_column=value_column,
-                    source="XM",
-                    dataset="Gene/Recurso",
-                    aggregation="Suma de todos los recursos del mes",
-                    series_id=f"col_generacion_total_{suffix}",
-                    series_name=label,
-                    catalog_date=catalog_date,
-                )
+        if legacy_all or "generation_national" in selected:
+            national_group = history.by_resource.copy()
+            national_group["classification"] = np.select(
+                [
+                    national_group["technology"].eq("Hidráulica"),
+                    national_group["technology"].isin(THERMAL_TECHNOLOGIES),
+                ],
+                ["Hidráulica", "Térmica"],
+                default="Otras",
             )
-        return pd.concat(long_frames, ignore_index=True), history, status, errors
+            national_group = national_group.groupby(
+                ["datetime", "classification"], as_index=False
+            )[["GWh_mes", "GWh_día"]].sum()
+            national_group["technology_code"] = "nacional_" + _slug_series(
+                national_group["classification"]
+            )
+            national_group["technology_name"] = (
+                "Nacional · " + national_group["classification"]
+            )
+            add_level(national_group, "Tecnología", "technology_code", "technology_name")
+            totals = history.by_resource.groupby("datetime", as_index=False)[
+                ["GWh_mes", "GWh_día"]
+            ].sum()
+            for value_column, unit, suffix, variable, label in (
+                (
+                    "GWh_mes",
+                    "GWh",
+                    "gwh_mes",
+                    "Generación mensual",
+                    "Generación nacional mensual",
+                ),
+                (
+                    "GWh_día",
+                    "GWh-día",
+                    "gwh_dia",
+                    "Generación promedio diario",
+                    "Generación nacional promedio diario",
+                ),
+            ):
+                long_frames.append(
+                    _long_rows(
+                        totals,
+                        country="COL",
+                        family="Generación",
+                        level="Sistema",
+                        entity_code="SIN",
+                        entity_name="Colombia",
+                        variable=variable,
+                        unit=unit,
+                        value_column=value_column,
+                        source="XM",
+                        dataset="Gene/Recurso",
+                        aggregation="Suma de todos los recursos del mes",
+                        series_id=f"col_generacion_total_{suffix}",
+                        series_name=label,
+                        catalog_date=catalog_date,
+                    )
+                )
+        generated = _combine_partial_frames(long_frames)
+        if generated.empty:
+            generated = pd.DataFrame(columns=LONG_COLUMNS)
+        return generated, history, status, errors
 
     def _capacity(
         self,
@@ -1406,12 +1399,12 @@ class ColombiaMonthlyBuilder:
 
         legacy_all = selected_options is None
         selected = set(DEFAULT_SELECTION if selected_options is None else selected_options)
-        selected.update({"demand", "spot_price", "generation_national"})
 
-        demand, task_status, task_errors = self._demand(first, final, callback)
-        long_frames.append(demand)
-        statuses.extend(task_status)
-        errors.extend(task_errors)
+        if legacy_all or "demand" in selected:
+            demand, task_status, task_errors = self._demand(first, final, callback)
+            long_frames.append(demand)
+            statuses.extend(task_status)
+            errors.extend(task_errors)
         tasks = [
             task
             for task in COLOMBIA_TASKS
@@ -1431,15 +1424,23 @@ class ColombiaMonthlyBuilder:
                 warnings.extend(
                     "Variable opcional no disponible: " + message for message in task_errors
                 )
-        generation, history, task_status, task_errors = self._generation(
-            first,
-            final,
-            callback,
-            selected_options=None if legacy_all else selected,
-        )
-        long_frames.append(generation)
-        statuses.extend(task_status)
-        errors.extend(task_errors)
+        generation_keys = {
+            "generation_national",
+            "generation_technology",
+            "generation_companies",
+            "generation_resources",
+        }
+        history: GenerationMonthlyHistory | None = None
+        if legacy_all or generation_keys.intersection(selected):
+            generation, history, task_status, task_errors = self._generation(
+                first,
+                final,
+                callback,
+                selected_options=None if legacy_all else selected,
+            )
+            long_frames.append(generation)
+            statuses.extend(task_status)
+            errors.extend(task_errors)
         dna_audit = pd.DataFrame()
         if legacy_all or "unserved" in selected:
             dna, dna_audit, task_status, task_errors, task_warnings = self._unserved(

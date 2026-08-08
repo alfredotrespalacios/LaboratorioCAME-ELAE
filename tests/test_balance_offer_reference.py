@@ -9,6 +9,7 @@ import pytest
 
 from came.analytics.balance import calculate_balance
 from came.analytics.offer_curve import build_offer_curve
+from came.ui.pages.offer_curve import _calculated_offer_table, _scenario_inputs
 
 
 def test_balance_matches_reference_workbook_normal_and_nino() -> None:
@@ -84,3 +85,28 @@ def test_offer_curve_does_not_extrapolate_a_deficit() -> None:
     assert result.deficit_gwh_day == 2.0
     assert result.marginal_discrete_price is None
     assert all(fit.estimated_price is None for fit in result.fits)
+
+
+def test_offer_scenarios_show_cen_factor_availability_and_price() -> None:
+    seed = pd.DataFrame(
+        {
+            "Tecnología": ["Hidráulica"],
+            "CEN_MW": [10_000.0],
+            "FP_normal": [0.52],
+            "FP_nino": [0.35],
+            "Precio_COP_kWh": [95.0],
+        }
+    )
+
+    normal = _calculated_offer_table(_scenario_inputs(seed, nino=False))
+    nino = _calculated_offer_table(_scenario_inputs(seed, nino=True))
+
+    expected_columns = {
+        "CEN_MW",
+        "Factor_planta",
+        "Disponibilidad_GWh_día",
+        "Precio_COP_kWh",
+    }
+    assert expected_columns.issubset(normal.columns)
+    assert normal.loc[0, "Disponibilidad_GWh_día"] == pytest.approx(124.8)
+    assert nino.loc[0, "Disponibilidad_GWh_día"] == pytest.approx(84.0)

@@ -4,7 +4,7 @@ Aplicación académica de ELAE para consultar, analizar y modelar mercados eléc
 construida con Streamlit y Plotly, usa fuentes oficiales abiertas y mantiene visibles las unidades,
 supuestos, coberturas y limitaciones de cada resultado.
 
-La versión 1.4.0 contiene una introducción de uso, los 19 módulos acordados, exportaciones Excel/PDF,
+La versión 1.4.1 contiene una introducción de uso, los 19 módulos acordados, exportaciones Excel/PDF,
 canasta manual para informe ejecutivo, acceso por contraseña, pruebas numéricas contra los Excel
 pedagógicos y un sistema mensual versionable que no requiere una base de datos externa.
 
