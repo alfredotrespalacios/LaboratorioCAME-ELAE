@@ -1,4 +1,4 @@
-"""Entrada única de Streamlit para los 19 módulos del Laboratorio CAME."""
+"""Entrada única de Streamlit para los 19 módulos y su mantenimiento técnico."""
 
 from __future__ import annotations
 
@@ -19,19 +19,22 @@ from came.ui.components import (  # noqa: E402
     authentication_gate,
     settings_from_streamlit,
 )
-from came.ui.pages_analysis import page_modeling, page_portfolio, page_volatility  # noqa: E402
-from came.ui.pages_colombia import (  # noqa: E402
-    page_balance,
-    page_demand,
-    page_generation_resource,
-    page_generation_technology,
-    page_integrated,
-    page_offer_curve,
-    page_spot,
-    page_xm_explorer,
-)
-from came.ui.pages_other import page_chile, page_spain  # noqa: E402
-from came.ui.pages_report import page_activity, page_report  # noqa: E402
+from came.ui.pages.activities import page_activity  # noqa: E402
+from came.ui.pages.base_integrated import page_integrated  # noqa: E402
+from came.ui.pages.chile import page_chile  # noqa: E402
+from came.ui.pages.data_maintenance import page_data_maintenance  # noqa: E402
+from came.ui.pages.demand_national import page_demand  # noqa: E402
+from came.ui.pages.energy_balance import page_balance  # noqa: E402
+from came.ui.pages.executive_report import page_report  # noqa: E402
+from came.ui.pages.generation_resource import page_generation_resource  # noqa: E402
+from came.ui.pages.generation_technology import page_generation_technology  # noqa: E402
+from came.ui.pages.modeling_forecast import page_modeling  # noqa: E402
+from came.ui.pages.offer_curve import page_offer_curve  # noqa: E402
+from came.ui.pages.portfolio_montecarlo import page_portfolio  # noqa: E402
+from came.ui.pages.price_spot import page_spot  # noqa: E402
+from came.ui.pages.sarima_garch import page_volatility  # noqa: E402
+from came.ui.pages.spain import page_spain  # noqa: E402
+from came.ui.pages.xm_explorer import page_xm_explorer  # noqa: E402
 
 st.set_page_config(
     page_title="Laboratorio CAME · ELAE",
@@ -45,22 +48,60 @@ if not authentication_gate(settings):
     st.stop()
 
 app_header()
-st.sidebar.caption("Herramienta académica · resultados no sustituyen análisis operativo o regulatorio.")
+st.sidebar.caption(
+    "Herramienta académica · resultados no sustituyen análisis operativo o regulatorio."
+)
 
 navigation = st.navigation(
     {
         "Colombia": [
-            st.Page(partial(page_spot, settings.request_timeout_seconds), title="1. Precio de bolsa", url_path="precio-bolsa"),
-            st.Page(partial(page_demand, settings.request_timeout_seconds), title="2. Demanda nacional", url_path="demanda"),
-            st.Page(partial(page_generation_technology, settings.request_timeout_seconds), title="3. Generación por tecnología", url_path="generacion-tecnologia"),
-            st.Page(partial(page_generation_resource, settings.request_timeout_seconds), title="4. Generación por recurso", url_path="generacion-recurso"),
-            st.Page(partial(page_xm_explorer, settings.request_timeout_seconds), title="5. Explorador XM", url_path="explorador-xm"),
-            st.Page(partial(page_integrated, settings.request_timeout_seconds), title="6. Base integrada", url_path="base-integrada"),
-            st.Page(partial(page_balance, settings.request_timeout_seconds), title="7. Balance energético", url_path="balance"),
-            st.Page(partial(page_offer_curve, settings.request_timeout_seconds), title="8. Curva de oferta", url_path="curva-oferta"),
+            st.Page(
+                partial(page_spot, settings.request_timeout_seconds),
+                title="1. Precio de bolsa",
+                url_path="precio-bolsa",
+            ),
+            st.Page(
+                partial(page_demand, settings.request_timeout_seconds),
+                title="2. Demanda nacional",
+                url_path="demanda",
+            ),
+            st.Page(
+                partial(page_generation_technology, settings.request_timeout_seconds),
+                title="3. Generación por tecnología",
+                url_path="generacion-tecnologia",
+            ),
+            st.Page(
+                partial(page_generation_resource, settings.request_timeout_seconds),
+                title="4. Generación por recurso",
+                url_path="generacion-recurso",
+            ),
+            st.Page(
+                partial(page_xm_explorer, settings.request_timeout_seconds),
+                title="5. Explorador XM",
+                url_path="explorador-xm",
+            ),
+            st.Page(
+                partial(page_integrated, settings.request_timeout_seconds),
+                title="6. Base integrada",
+                url_path="base-integrada",
+            ),
+            st.Page(
+                partial(page_balance, settings.request_timeout_seconds),
+                title="7. Balance energético",
+                url_path="balance",
+            ),
+            st.Page(
+                partial(page_offer_curve, settings.request_timeout_seconds),
+                title="8. Curva de oferta",
+                url_path="curva-oferta",
+            ),
         ],
         "Otros mercados": [
-            st.Page(partial(page_spain, settings.request_timeout_seconds), title="9. España", url_path="espana"),
+            st.Page(
+                partial(page_spain, settings.request_timeout_seconds),
+                title="9. España",
+                url_path="espana",
+            ),
             st.Page(
                 partial(
                     page_chile,
@@ -88,6 +129,13 @@ navigation = st.navigation(
         ],
         "Informe": [
             st.Page(page_report, title="19. Informe ejecutivo", url_path="informe"),
+        ],
+        "Mantenimiento": [
+            st.Page(
+                partial(page_data_maintenance, settings.request_timeout_seconds),
+                title="Mantenimiento de datos",
+                url_path="mantenimiento-datos",
+            ),
         ],
     }
 )

@@ -5,8 +5,8 @@ construida con Streamlit y Plotly, usa fuentes oficiales abiertas y mantiene vis
 supuestos, coberturas y limitaciones de cada resultado.
 
 La entrega contiene los 19 módulos acordados, exportaciones Excel/PDF, canasta para informe
-ejecutivo, acceso por contraseña, pruebas numéricas contra los Excel pedagógicos y verificaciones
-de fuentes reales.
+ejecutivo, acceso por contraseña, pruebas numéricas contra los Excel pedagógicos y un sistema
+mensual versionable que no requiere una base de datos externa.
 
 ## Módulos
 
@@ -18,6 +18,26 @@ de fuentes reales.
 | Portafolios | 13. Monte Carlo de generación, precio y contratación, con VaR/CVaR |
 | Actividades | 14–18. Espacios “Próximamente disponible”, sin contenido inventado |
 | Informe | 19. Canasta y generador de prompt ejecutivo TXT |
+
+Al final del menú se incluye **Mantenimiento de datos**, una página técnica no numerada. Allí se
+puede construir la primera base, agregar meses, recalcular un periodo, reanudar bloques aprobados,
+validar el resultado y descargar el ZIP listo para GitHub. No es un módulo de análisis y no se
+utiliza durante la operación normal.
+
+## Bases mensuales publicadas
+
+Cada país conserva tres archivos juntos. Colombia usa exactamente:
+
+```text
+datos_por_defecto/colombia/
+├── Base_integrada_mensual.parquet
+├── Catalogo_Base_integrada.xlsx
+└── Fecha_actualizacion_Base_integrada.json
+```
+
+España y Chile siguen la misma estructura en sus carpetas. El Parquet tiene formato largo y puede
+guardar series nacionales, por tecnología, empresa y recurso sin crear una tabla inmanejable de
+columnas. Los módulos convierten únicamente las series seleccionadas a formato ancho.
 
 ## Inicio local
 
@@ -43,7 +63,7 @@ CAME_DEV_MODE=1 streamlit run app.py
 ## Comprobación completa
 
 ```bash
-make check       # lint + 21 pruebas locales + smoke de Streamlit
+make check       # lint + pruebas locales + smoke de Streamlit
 make live-check  # 3 contratos contra XM, REData y OMIE
 ```
 
@@ -59,15 +79,16 @@ marginal de `2.2 Modelo rápido fundamental spot.xlsx`.
 4. Pegue los secretos en la consola de Streamlit; no cree `secrets.toml` en GitHub.
 5. Ejecute `make live-check` antes y después de publicar.
 
-La aplicación no necesita base de datos: consulta bajo demanda y utiliza caché temporal. Los
-resultados de sesión y la canasta del informe se reinician cuando la sesión termina.
+La aplicación no necesita base de datos externa. Consulta bajo demanda, utiliza caché temporal y
+lee los Parquet mensuales publicados en GitHub. Los resultados de sesión y la canasta del informe
+se reinician cuando la sesión termina; los tres archivos mensuales permanecen versionados.
 
 ## Fuentes y trazabilidad
 
 - Colombia: API pública de [XM/Sinergox](https://sinergox.xm.com.co/).
 - España: API [REData de Red Eléctrica](https://www.ree.es/es/datos/apidatos) y archivos de
   [OMIE](https://www.omie.es/en/file-access-list).
-- Chile: exportaciones TSV/XLSX del
+- Chile: exportaciones TSV/XLSX de costos, demanda y generación del
   [Coordinador Eléctrico Nacional](https://www.coordinador.cl/costos-marginales/).
 - TRM: portal colombiano de datos abiertos. ENSO: NOAA/CPC.
 
@@ -81,7 +102,11 @@ por datos simulados.
 app.py                       navegación y acceso
 src/came/analytics/          fórmulas y modelos probados
 src/came/data/providers/     conectores y parsers por fuente
-src/came/ui/                 páginas, gráficos y componentes
+src/came/data/maintenance.py motor reanudable por bloques
+src/came/data/monthly_store.py validación, Parquet, catálogo, JSON y ZIP
+src/came/ui/pages/           un archivo de interfaz por módulo
+src/came/ui/                 gráficos y componentes compartidos
+datos_por_defecto/           paquetes mensuales publicados por país
 tests/                       unitarias, numéricas, smoke y contratos vivos
 docs/                        especificación, despliegue y validación
 .streamlit/                  tema y ejemplo de secretos

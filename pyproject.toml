@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "laboratorio-came"
-version = "1.0.0"
+version = "1.1.0"
 description = "Plataforma académica ELAE para análisis de mercados eléctricos"
 requires-python = ">=3.10"
 dependencies = [
@@ -24,6 +24,7 @@ dependencies = [
   "reportlab>=4.2,<5",
   "kaleido>=1.0,<2",
   "pydantic>=2.9,<3",
+  "pyarrow>=18,<23",
 ]
 
 [project.optional-dependencies]

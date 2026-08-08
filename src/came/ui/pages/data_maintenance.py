@@ -1,0 +1,428 @@
+"""Página técnica para construir y publicar las bases mensuales por defecto."""
+
+from __future__ import annotations
+
+from datetime import date
+
+import pandas as pd
+import streamlit as st
+
+from came.data.maintenance import (
+    BuildResult,
+    ChileMonthlyBuilder,
+    ColombiaMonthlyBuilder,
+    ProgressEvent,
+    SpainMonthlyBuilder,
+)
+from came.data.monthly_store import (
+    LONG_COLUMNS,
+    MonthlyPackage,
+    create_monthly_package,
+    get_package_spec,
+    last_complete_month,
+    load_default_metadata,
+    load_default_monthly,
+    merge_monthly_data,
+)
+
+OPERATION_UPDATE = "Agregar meses faltantes"
+OPERATION_BUILD = "Construir la primera base"
+OPERATION_RECALCULATE = "Recalcular un periodo"
+
+
+def _load_existing(country: str) -> tuple[pd.DataFrame, dict[str, object], str | None]:
+    try:
+        data = load_default_monthly(country)
+        return data, load_default_metadata(country), None
+    except FileNotFoundError as exc:
+        return pd.DataFrame(columns=LONG_COLUMNS), {}, str(exc)
+    except Exception as exc:
+        return (
+            pd.DataFrame(columns=LONG_COLUMNS),
+            {},
+            f"No fue posible leer el paquete publicado: {exc}",
+        )
+
+
+def _progress_callback(container: st.delta_generator.DeltaGenerator):
+    bar = container.progress(0.0)
+    detail = container.empty()
+
+    def update(event: ProgressEvent) -> None:
+        progress = event.current / max(event.total, 1)
+        bar.progress(min(max(progress, 0.0), 1.0))
+        detail.caption(
+            f"{event.source} · {event.variable} · {event.period} · {event.status} "
+            f"({event.current}/{event.total})"
+        )
+
+    return update
+
+
+def _show_current_state(country: str, data: pd.DataFrame, metadata: dict[str, object]) -> None:
+    spec = get_package_spec(country)
+    st.markdown(f"**Archivos publicados de {spec.label}**")
+    if data.empty:
+        st.warning("Todavía no existe una base mensual publicada para este país.")
+        return
+    columns = st.columns(4)
+    columns[0].metric("Último mes", str(pd.to_datetime(data["datetime"], utc=True).max().date()))
+    columns[1].metric("Series", f"{data['series_id'].nunique():,}")
+    columns[2].metric("Filas", f"{len(data):,}")
+    columns[3].metric("Versión", str(metadata.get("schema_version", "Sin JSON")))
+
+
+def _show_result(result: BuildResult, package: MonthlyPackage | None, key: str) -> None:
+    st.subheader("Resultado de la ejecución")
+    if not result.status.empty:
+        st.dataframe(result.status, use_container_width=True, hide_index=True)
+    if result.warnings:
+        for warning in result.warnings:
+            st.warning(warning)
+    if result.errors:
+        st.error(
+            "No se generó un paquete para publicar. Los bloques aprobados quedaron guardados "
+            "temporalmente; corrija la fuente o pulse de nuevo para reanudar."
+        )
+        with st.expander("Errores que deben resolverse", expanded=True):
+            for error in result.errors:
+                st.write(f"- {error}")
+        return
+    if package is None:
+        st.error("La construcción terminó sin errores de fuente, pero no produjo un paquete.")
+        return
+    st.success("Paquete validado. Puede descargarlo y publicar juntos sus tres archivos.")
+    st.dataframe(package.validation.as_frame(), use_container_width=True, hide_index=True)
+    spec = package.spec
+    st.download_button(
+        "Descargar ZIP listo para GitHub",
+        data=package.zip_bytes,
+        file_name=f"Base_mensual_{spec.label}.zip",
+        mime="application/zip",
+        type="primary",
+        key=f"{key}_zip",
+    )
+    columns = st.columns(3)
+    columns[0].download_button(
+        spec.parquet_name,
+        package.parquet_bytes,
+        file_name=spec.parquet_name,
+        mime="application/octet-stream",
+        key=f"{key}_parquet",
+    )
+    columns[1].download_button(
+        spec.catalog_name,
+        package.catalog_bytes,
+        file_name=spec.catalog_name,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        key=f"{key}_catalog",
+    )
+    columns[2].download_button(
+        spec.metadata_name,
+        package.metadata_bytes,
+        file_name=spec.metadata_name,
+        mime="application/json",
+        key=f"{key}_metadata",
+    )
+
+
+def _period_controls(
+    country: str,
+    operation: str,
+    existing: pd.DataFrame,
+    *,
+    default_start: date,
+    key: str,
+) -> tuple[date, date, pd.DataFrame | None, date | None, date | None] | None:
+    complete = last_complete_month().date()
+    complete_end = (last_complete_month() + pd.offsets.MonthEnd()).date()
+    if operation == OPERATION_BUILD:
+        start = st.date_input(
+            "Fecha inicial de la historia", value=default_start, key=f"{key}_start_build"
+        )
+        end = st.date_input(
+            "Último día a consultar",
+            value=complete_end,
+            max_value=complete_end,
+            key=f"{key}_end_build",
+        )
+        return start, end, None, None, None
+    if operation == OPERATION_UPDATE:
+        if existing.empty:
+            st.info("No existe un Parquet publicado. Seleccione **Construir la primera base**.")
+            return None
+        current_last = pd.to_datetime(existing["datetime"], utc=True).max()
+        start_ts = current_last + pd.offsets.MonthBegin()
+        if start_ts.date() > complete:
+            st.success("La base publicada ya contiene el último mes calendario completo.")
+            return None
+        start = start_ts.date()
+        st.write(f"Se descargarán únicamente los meses entre **{start}** y **{complete_end}**.")
+        return start, complete_end, existing, None, None
+    columns = st.columns(2)
+    start = columns[0].date_input(
+        "Primer mes que se reemplazará", value=default_start, key=f"{key}_start_recalc"
+    )
+    end = columns[1].date_input(
+        "Último mes que se reemplazará",
+        value=complete_end,
+        max_value=complete_end,
+        key=f"{key}_end_recalc",
+    )
+    if existing.empty:
+        st.info("No existe una versión publicada sobre la cual reemplazar meses.")
+        return None
+    return start, end, existing, start, end
+
+
+def _additional_sheets(result: BuildResult) -> dict[str, pd.DataFrame]:
+    sheets = {"Estado de fuentes": result.status}
+    if not result.validation.empty:
+        sheets["Conciliación generación"] = result.validation
+    sheets.update(result.catalogs)
+    return sheets
+
+
+def _colombia_section(timeout: int) -> None:
+    existing, metadata, load_error = _load_existing("COL")
+    _show_current_state("COL", existing, metadata)
+    if load_error:
+        st.caption(load_error)
+    operation = st.radio(
+        "Operación para Colombia",
+        [OPERATION_UPDATE, OPERATION_BUILD, OPERATION_RECALCULATE],
+        key="maintenance_col_operation",
+    )
+    period = _period_controls(
+        "COL", operation, existing, default_start=date(2000, 1, 1), key="maintenance_col"
+    )
+    st.caption("La construcción completa incluye XM, TRM y ONI automáticamente.")
+    confirm = st.checkbox(
+        "Entiendo que la operación puede tardar y mantendré abierta esta pestaña.",
+        key="maintenance_col_confirm",
+    )
+    clear = st.checkbox(
+        "Ignorar avances temporales y volver a consultar todos los bloques",
+        value=False,
+        key="maintenance_col_clear",
+    )
+    button_label = (
+        "Reanudar o iniciar construcción"
+        if operation != OPERATION_UPDATE
+        else "Actualizar meses faltantes"
+    )
+    if period and st.button(
+        button_label, type="primary", disabled=not confirm, key="maintenance_col_run"
+    ):
+        start, end, base, replace_start, replace_end = period
+        build_id = f"COL_{operation}_{start}_{end}"
+        builder = ColombiaMonthlyBuilder(timeout=timeout, build_id=build_id)
+        if clear:
+            builder.clear_checkpoints()
+        progress = st.container()
+        with st.spinner("Procesando fuentes oficiales por bloques…"):
+            result = builder.build(
+                start,
+                end,
+                existing=base,
+                replace_start=replace_start,
+                replace_end=replace_end,
+                include_macro=True,
+                callback=_progress_callback(progress),
+            )
+        package = None
+        if result.ok:
+            try:
+                package = create_monthly_package(
+                    result.data,
+                    "COL",
+                    additional_sheets=_additional_sheets(result),
+                    build_notes=[
+                        f"Operación: {operation}.",
+                        "La asociación histórica recurso–empresa corresponde al catálogo XM usado en la consulta.",
+                    ],
+                )
+            except Exception as exc:
+                result.errors.append(str(exc))
+        st.session_state["maintenance_col_result"] = (result, package)
+    state = st.session_state.get("maintenance_col_result")
+    if state:
+        _show_result(state[0], state[1], "maintenance_col")
+
+
+def _spain_section(timeout: int) -> None:
+    existing, metadata, load_error = _load_existing("ESP")
+    _show_current_state("ESP", existing, metadata)
+    if load_error:
+        st.caption(load_error)
+    operation = st.radio(
+        "Operación para España",
+        [OPERATION_UPDATE, OPERATION_BUILD, OPERATION_RECALCULATE],
+        key="maintenance_esp_operation",
+    )
+    period = _period_controls(
+        "ESP", operation, existing, default_start=date(2014, 1, 1), key="maintenance_esp"
+    )
+    st.caption("La construcción completa incluye REData y el precio diario de OMIE.")
+    confirm = st.checkbox(
+        "Entiendo que REData y OMIE se procesarán de manera independiente.",
+        key="maintenance_esp_confirm",
+    )
+    if period and st.button(
+        "Construir o actualizar España",
+        type="primary",
+        disabled=not confirm,
+        key="maintenance_esp_run",
+    ):
+        start, end, base, replace_start, replace_end = period
+        progress = st.container()
+        build_id = f"ESP_{operation}_{start}_{end}"
+        builder = SpainMonthlyBuilder(timeout=timeout, build_id=build_id)
+        with st.spinner("Consultando fuentes oficiales de España…"):
+            result = builder.build(
+                start, end, include_omie=True, callback=_progress_callback(progress)
+            )
+        if result.ok:
+            if base is not None and replace_start is not None and replace_end is not None:
+                dates = pd.to_datetime(base["datetime"], utc=True)
+                lower = pd.Timestamp(replace_start, tz="UTC")
+                upper = pd.Timestamp(replace_end, tz="UTC") + pd.offsets.MonthEnd()
+                base = base[~dates.between(lower, upper)]
+            result.data = merge_monthly_data(base, result.data)
+        package = None
+        if result.ok:
+            try:
+                package = create_monthly_package(
+                    result.data,
+                    "ESP",
+                    additional_sheets=_additional_sheets(result),
+                    build_notes=[f"Operación: {operation}."],
+                )
+            except Exception as exc:
+                result.errors.append(str(exc))
+        st.session_state["maintenance_esp_result"] = (result, package)
+    state = st.session_state.get("maintenance_esp_result")
+    if state:
+        _show_result(state[0], state[1], "maintenance_esp")
+
+
+def _chile_section(timeout: int) -> None:
+    existing, metadata, load_error = _load_existing("CHL")
+    _show_current_state("CHL", existing, metadata)
+    if load_error:
+        st.caption(load_error)
+    st.info(
+        "El portal del Coordinador puede bloquear la descarga automática. Para mantener datos "
+        "oficiales y trazables, cargue aquí las dos exportaciones de la misma cobertura."
+    )
+    costs = st.file_uploader(
+        "Archivo oficial de costos marginales",
+        type=["xlsx", "xls", "csv", "tsv", "txt"],
+        key="maintenance_chl_costs",
+    )
+    demand = st.file_uploader(
+        "Archivo oficial de demanda por barra",
+        type=["xlsx", "xls", "csv", "tsv", "txt"],
+        key="maintenance_chl_demand",
+    )
+    generation = st.file_uploader(
+        "Archivo oficial de generación por tecnología",
+        type=["xlsx", "xls", "csv", "tsv", "txt"],
+        key="maintenance_chl_generation",
+    )
+    confirm = st.checkbox(
+        "Confirmo que los tres archivos provienen del Coordinador y cubren el mismo periodo.",
+        key="maintenance_chl_confirm",
+    )
+    if st.button(
+        "Procesar y actualizar Chile",
+        type="primary",
+        disabled=not (confirm and costs and demand and generation),
+        key="maintenance_chl_run",
+    ):
+        progress = st.container()
+        result = ChileMonthlyBuilder(timeout=timeout).build_from_files(
+            costs.getvalue(),
+            costs.name,
+            demand.getvalue(),
+            demand.name,
+            generation.getvalue(),
+            generation.name,
+            callback=_progress_callback(progress),
+        )
+        if result.ok and not existing.empty:
+            first = pd.to_datetime(result.data["datetime"], utc=True).min()
+            last = pd.to_datetime(result.data["datetime"], utc=True).max() + pd.offsets.MonthEnd()
+            dates = pd.to_datetime(existing["datetime"], utc=True)
+            result.data = merge_monthly_data(existing[~dates.between(first, last)], result.data)
+        package = None
+        if result.ok:
+            try:
+                package = create_monthly_package(
+                    result.data,
+                    "CHL",
+                    additional_sheets=_additional_sheets(result),
+                    build_notes=[
+                        "Actualización construida desde exportaciones oficiales cargadas por el usuario."
+                    ],
+                )
+            except Exception as exc:
+                result.errors.append(str(exc))
+        st.session_state["maintenance_chl_result"] = (result, package)
+    state = st.session_state.get("maintenance_chl_result")
+    if state:
+        _show_result(state[0], state[1], "maintenance_chl")
+
+
+def _publication_guide() -> None:
+    st.subheader("Cómo publicar una actualización")
+    st.markdown(
+        "1. Construya o actualice un país y espere el mensaje **Paquete validado**.\n"
+        "2. Descargue el ZIP; no publique archivos de una ejecución con errores.\n"
+        "3. Descomprímalo y abra en GitHub la carpeta exacta incluida en el ZIP.\n"
+        "4. Reemplace juntos el Parquet, el catálogo Excel y el JSON, sin cambiar sus nombres.\n"
+        "5. Confirme el cambio mediante un *commit*. Solo una persona con permiso de GitHub "
+        "puede publicarlo; Streamlit nunca modifica el repositorio automáticamente.\n"
+        "6. Espere el nuevo despliegue y compruebe el último mes desde **Base integrada**."
+    )
+    rows = []
+    for country in ("COL", "ESP", "CHL"):
+        spec = get_package_spec(country)
+        rows.append(
+            {
+                "País": spec.label,
+                "Carpeta GitHub": spec.relative_directory.as_posix() + "/",
+                "Parquet": spec.parquet_name,
+                "Catálogo": spec.catalog_name,
+                "Actualización": spec.metadata_name,
+            }
+        )
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+
+def page_data_maintenance(timeout: int = 45) -> None:
+    """Construye, valida y permite descargar paquetes mensuales independientes."""
+
+    st.header("Mantenimiento de datos")
+    st.write(
+        "Página técnica para crear o actualizar las bases mensuales que utilizan los módulos. "
+        "No se necesita durante la consulta normal del Laboratorio."
+    )
+    st.warning(
+        "**No usar durante la operación normal.** Una construcción histórica consulta muchas "
+        "observaciones y puede tardar. Mantenga abierta la pestaña hasta obtener el ZIP.",
+        icon="⚠️",
+    )
+    st.info(
+        "No existen perfiles diferentes: cualquier usuario puede construir y descargar. "
+        "Publicar requiere permiso sobre GitHub; la aplicación nunca lo reemplaza automáticamente.",
+        icon="ℹ️",
+    )
+    _publication_guide()
+    tabs = st.tabs(["Colombia", "España", "Chile"])
+    with tabs[0]:
+        _colombia_section(timeout)
+    with tabs[1]:
+        _spain_section(timeout)
+    with tabs[2]:
+        _chile_section(timeout)
