@@ -141,6 +141,11 @@ class CheckpointStore:
     def __init__(self, build_id: str) -> None:
         safe_id = re.sub(r"[^a-zA-Z0-9_.-]+", "_", build_id).strip("._")
         self.directory = Path(tempfile.gettempdir()) / "laboratorio_came" / safe_id
+        self._ensure_directory()
+
+    def _ensure_directory(self) -> None:
+        """Crea de nuevo la carpeta si fue limpiada entre dos bloques."""
+
         self.directory.mkdir(parents=True, exist_ok=True)
 
     def _path(self, key: str) -> Path:
@@ -152,11 +157,24 @@ class CheckpointStore:
         return pd.read_parquet(path) if path.exists() else None
 
     def put(self, key: str, frame: pd.DataFrame) -> None:
-        frame.to_parquet(self._path(key), index=False, compression="zstd")
+        path = self._path(key)
+        temporary = path.with_name(f".{path.name}.tmp")
+        for attempt in range(2):
+            self._ensure_directory()
+            try:
+                frame.to_parquet(temporary, index=False, compression="zstd")
+                temporary.replace(path)
+                return
+            except OSError:
+                if attempt == 1:
+                    raise
+            finally:
+                temporary.unlink(missing_ok=True)
 
     def clear(self) -> None:
         if self.directory.exists():
             shutil.rmtree(self.directory)
+        self._ensure_directory()
 
 
 def _month_start(values: pd.Series, timezone_name: str) -> pd.Series:

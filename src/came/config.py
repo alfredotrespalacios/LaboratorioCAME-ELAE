@@ -9,7 +9,7 @@ from typing import Any
 
 APP_TITLE = "Laboratorio CAME"
 APP_SUBTITLE = "Plataforma ELAE de análisis de mercados eléctricos"
-APP_VERSION = "1.2.1"
+APP_VERSION = "1.2.2"
 
 COLORS = {
     "navy": "#18324A",

@@ -1,11 +1,11 @@
-# Informe de validación v1.2.1
+# Informe de validación v1.2.2
 
 Fecha: 8 de agosto de 2026.
 
 ## Resultado
 
 - Lint: `ruff check .` sin hallazgos.
-- Pruebas locales: 49 aprobadas.
+- Pruebas locales: 52 aprobadas.
 - Contratos vivos: no ejecutados en este entorno restringido; los 3 contratos fueron aprobados en
   la validación v1.1.0.
 - Smoke de Streamlit: página inicial cargada sin excepciones en modo local.
@@ -20,6 +20,9 @@ Fecha: 8 de agosto de 2026.
 - Informe ejecutivo: la canasta permanece vacía hasta que el usuario pulsa el botón de guardado.
 - Mantenimiento: un bloque temporalmente fallido se recupera dentro de tres intentos y conserva
   los puntos de avance.
+- Recuperación de directorios: el almacén de avances y la escritura atómica del paquete recrean
+  sus carpetas si fueron eliminadas antes de guardar un bloque o archivo, y repiten una vez la
+  escritura si la carpeta desaparece exactamente durante la operación.
 
 ## Contraste con los Excel entregados
 

@@ -2,7 +2,7 @@
 
 ## Estado actual
 
-- Versión 1.2.1 implementada y validada localmente.
+- Versión 1.2.2 implementada y validada localmente.
 - Los 19 módulos están incorporados en la navegación definitiva.
 - Las cinco actividades permanecen como marcadores aprobados, sin contenido ficticio.
 - No existen credenciales dentro del repositorio.
@@ -23,7 +23,7 @@
 
 ## Verificaciones cerradas
 
-- Lint, 49 pruebas locales y smoke de Streamlit aprobados el 8 de agosto de 2026.
+- Lint, 52 pruebas locales y smoke de Streamlit aprobados el 8 de agosto de 2026.
 - Los tres contratos vivos fueron aprobados en la validación v1.1.0; la v1.2.0 no los repitió en
   este entorno restringido.
 - Balance y curva contrastados con los Excel recibidos.
@@ -31,6 +31,8 @@
   volumen útil tienen pruebas locales.
 - El ZIP validado se guarda en disco temporal antes de mostrar los botones y puede recuperarse
   después de un `rerun` de Streamlit sin repetir la construcción.
+- Las carpetas temporales de avance y del paquete se recrean antes de cada escritura. Limpiar
+  avances o perder una carpeta temporal durante una ejecución ya no bloquea el siguiente bloque.
 - Rendimientos simple/logarítmico, exclusión del último día incompleto, reintentos de bloques y
   guardado manual al informe tienen pruebas locales.
 

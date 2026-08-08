@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from io import BytesIO
+from pathlib import Path
 from zipfile import ZipFile
 
 import pandas as pd
 import pytest
 
-from came.data.maintenance import COLOMBIA_TASKS, ColombiaMonthlyBuilder
+from came.data.maintenance import COLOMBIA_TASKS, CheckpointStore, ColombiaMonthlyBuilder
 from came.data.monthly_store import (
     LONG_COLUMNS,
+    _write_bytes_atomically,
     create_monthly_package,
     load_stored_monthly_package,
     merge_monthly_data,
@@ -68,6 +70,52 @@ def test_monthly_package_is_recoverable_from_disk_after_a_rerun(tmp_path) -> Non
     assert recovered.catalog_path.read_bytes() == package.catalog_bytes
     assert recovered.metadata_path.read_bytes() == package.metadata_bytes
     assert recovered.validation.ok
+
+
+def test_checkpoint_store_recreates_directory_after_clear(tmp_path) -> None:
+    store = CheckpointStore("clear-and-resume")
+    store.directory = tmp_path / "deleted-checkpoints"
+    store.directory.mkdir(parents=True)
+    store.clear()
+
+    frame = pd.DataFrame({"datetime": [pd.Timestamp("2024-01-01")], "value": [1.0]})
+    store.put("xm_DemaSIN_2024", frame)
+
+    recovered = store.get("xm_DemaSIN_2024")
+    assert recovered is not None
+    pd.testing.assert_frame_equal(recovered, frame)
+
+
+def test_checkpoint_store_retries_if_directory_disappears_during_write(
+    tmp_path, monkeypatch
+) -> None:
+    store = CheckpointStore("directory-disappears")
+    store.directory = tmp_path / "volatile-checkpoints"
+    store.directory.mkdir(parents=True)
+    frame = pd.DataFrame({"datetime": [pd.Timestamp("2024-01-01")], "value": [1.0]})
+    original_to_parquet = pd.DataFrame.to_parquet
+    calls = 0
+
+    def disappearing_write(self, path, *args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            Path(path).parent.rmdir()
+        return original_to_parquet(self, path, *args, **kwargs)
+
+    monkeypatch.setattr(pd.DataFrame, "to_parquet", disappearing_write)
+    store.put("xm_DemaSIN_2024", frame)
+
+    assert calls == 2
+    assert store.get("xm_DemaSIN_2024") is not None
+
+
+def test_atomic_writer_recreates_missing_parent_directory(tmp_path) -> None:
+    target = tmp_path / "deleted-package" / "Base_mensual_COL.zip"
+
+    _write_bytes_atomically(target, b"package")
+
+    assert target.read_bytes() == b"package"
 
 
 def test_validation_rejects_duplicates_and_incomplete_month() -> None:

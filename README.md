@@ -28,6 +28,9 @@ Al aprobarse la validación, Mantenimiento escribe primero el ZIP y sus tres arc
 temporal de la instancia y después muestra las descargas. El botón permanece disponible durante
 los `rerun` y la navegación de esa sesión. Si alguna fuente termina con error, la pantalla indica
 explícitamente que no creó el ZIP y permite reanudar los bloques pendientes.
+Antes de guardar cada bloque y cada archivo final, la aplicación verifica y recrea su carpeta
+temporal. Esto permite continuar incluso después de limpiar avances o de que la instancia elimine
+una carpeta vacía.
 
 ## Bases mensuales publicadas
 

@@ -381,8 +381,17 @@ def _write_bytes_atomically(path: Path, content: bytes) -> None:
     """Escribe primero un temporal y publica el archivo solo cuando está completo."""
 
     temporary = path.with_name(f".{path.name}.tmp")
-    temporary.write_bytes(content)
-    temporary.replace(path)
+    for attempt in range(2):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            temporary.write_bytes(content)
+            temporary.replace(path)
+            return
+        except OSError:
+            if attempt == 1:
+                raise
+        finally:
+            temporary.unlink(missing_ok=True)
 
 
 def store_monthly_package(
