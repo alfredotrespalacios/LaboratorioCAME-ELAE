@@ -1,0 +1,52 @@
+# Plan de construcción verificable
+
+## Hito 0 — Auditoría y contratos
+
+- [x] Consolidar especificación v1.1.
+- [x] Definir esquema canónico y conectores.
+- [x] Validar muestras reales de XM, REData y OMIE; validar parsers oficiales del Coordinador.
+
+## Hito 1 — Núcleo transversal
+
+- [x] Acceso, sesión y configuración.
+- [x] Calidad, unidades, agregaciones, exportaciones e Informe ejecutivo.
+- [x] Navegación y diseño pedagógico común.
+- [x] Introducción con mapa de módulos, ruta recomendada y condiciones de uso de ELAE.
+
+## Hito 2 — Colombia
+
+- [x] Precio de bolsa.
+- [x] Demanda y demanda no atendida sin doble conteo.
+- [x] Generación por tecnología, planta, recurso y empresa.
+- [x] Explorador XM y base integrada.
+- [x] Balance y curva rápida.
+
+## Hito 3 — Otros mercados
+
+- [x] España: REData y OMIE.
+- [x] Chile: costo marginal, demanda y ponderaciones desde archivos oficiales.
+
+## Hito 4 — Análisis, volatilidad y portafolios
+
+- [x] Modelos de referencia, lineal, árbol, KNN, Random Forest, ARIMA y SARIMA.
+- [x] SARIMA–GARCH con residuales originales y estandarizados.
+- [x] Monte Carlo correlacionado, contratación, VaR y CVaR.
+
+## Hito 5 — Cierre
+
+- [x] Cinco espacios denominados Casos de estudio y último módulo de Informe ejecutivo.
+- [x] Pruebas unitarias, integración, numéricas, interfaz y seguridad.
+- [x] Documentación y paquete de despliegue.
+
+## Hito 6 — Bases mensuales versionadas
+
+- [x] Definir formato largo común y carpetas independientes por país.
+- [x] Implementar Parquet, catálogo Excel, JSON, validación y ZIP.
+- [x] Implementar construcción, actualización, recálculo y reanudación por bloques para Colombia.
+- [x] Conciliar generación mensual por recurso, empresa, tecnología y sistema.
+- [x] Preparar REData/OMIE para España y exportaciones oficiales para Chile.
+- [x] Conectar módulos 6, 9, 10, 11, 12 y 13 a los Parquet publicados.
+- [x] Separar cada página visible en su propio archivo Python.
+- [ ] Ejecutar desde Streamlit la primera carga histórica completa y publicar los tres paquetes.
+
+Regla de ejecución: si una validación de un hito falla, corregir antes de marcarlo como completo.
