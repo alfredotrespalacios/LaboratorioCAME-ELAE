@@ -18,6 +18,10 @@ HISTORY_START = date(2000, 1, 1)
 
 
 def apply_theme() -> None:
+    # Plotly también usa este tema en las figuras creadas directamente con Plotly Express.
+    from came.ui.charts import configure_plotly_theme
+
+    configure_plotly_theme()
     st.markdown(
         """
         <style>
@@ -51,7 +55,25 @@ def apply_theme() -> None:
         div[data-testid="stExpander"], [data-testid="stDataFrame"],
         [data-testid="stTable"] { background: white; border-radius: .55rem; }
         [data-testid="stAlert"] * { color: #101828 !important; }
-        button[kind="primary"] { color: #FFFFFF !important; }
+        button[kind="primary"] {
+          background: #1F4E79 !important; border-color: #1F4E79 !important;
+          color: #FFFFFF !important;
+        }
+        button[kind="secondary"], button[kind="tertiary"] {
+          background: #E4E7EC !important; border-color: #98A2B3 !important;
+          color: #18324A !important; -webkit-text-fill-color: #18324A !important;
+        }
+        button[kind="secondary"] *, button[kind="tertiary"] * {
+          color: #18324A !important; -webkit-text-fill-color: #18324A !important;
+        }
+        button:disabled, button[disabled] {
+          background: #EAECF0 !important; border-color: #D0D5DD !important;
+          color: #667085 !important; -webkit-text-fill-color: #667085 !important;
+          opacity: 1 !important;
+        }
+        button:disabled *, button[disabled] * {
+          color: #667085 !important; -webkit-text-fill-color: #667085 !important;
+        }
         .came-kicker { color:#C69214; font-weight:700; letter-spacing:.08em; font-size:.78rem; }
         .came-source { color:#667085; font-size:.84rem; }
         .came-guide dt { color:#18324A; font-weight:700; margin-top:.45rem; }
@@ -208,7 +230,7 @@ def export_and_collect(
     additional: dict[str, Any] | None = None,
     key: str,
 ) -> None:
-    """Entrega archivos homogéneos y registra automáticamente el resultado en el informe."""
+    """Entrega archivos homogéneos y permite guardar el resultado de forma explícita."""
 
     warnings = warnings or []
     package = make_package(
@@ -225,16 +247,6 @@ def export_and_collect(
         additional_tables=additional,
         package_id=key,
     ).to_dict()
-    packages = st.session_state.setdefault("report_packages", [])
-    position = next(
-        (index for index, item in enumerate(packages) if item.get("package_id") == key),
-        None,
-    )
-    if position is None:
-        packages.append(package)
-    else:
-        packages[position] = package
-
     excel: bytes | None = None
     pdf: bytes | None = None
     excel_error = ""
@@ -294,7 +306,32 @@ def export_and_collect(
         key=f"{key}_json",
         use_container_width=True,
     )
-    st.caption("Este resultado ya quedó guardado automáticamente para el informe ejecutivo.")
+    packages = st.session_state.get("report_packages", [])
+    already_saved = any(item.get("package_id") == key for item in packages)
+    save_label = (
+        "Actualizar resultado guardado para el informe ejecutivo"
+        if already_saved
+        else "Guardar resultado para el informe ejecutivo"
+    )
+    if st.button(save_label, key=f"{key}_save_report", use_container_width=True):
+        packages = st.session_state.setdefault("report_packages", [])
+        position = next(
+            (index for index, item in enumerate(packages) if item.get("package_id") == key),
+            None,
+        )
+        if position is None:
+            packages.append(package)
+        else:
+            packages[position] = package
+        st.success(
+            "Resultado guardado en la memoria de esta sesión. "
+            "Ya puede seleccionarlo en el módulo 19."
+        )
+    else:
+        st.caption(
+            "El resultado no se guarda automáticamente. Use el botón anterior si desea "
+            "incluirlo en el informe ejecutivo."
+        )
 
 
 def unavailable(exc: Exception, *, source: str) -> None:

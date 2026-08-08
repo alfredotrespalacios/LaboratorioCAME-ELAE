@@ -9,6 +9,7 @@ import pandas as pd
 
 from came.analytics.aggregation import (
     add_change_columns,
+    add_price_returns,
     add_time_and_enso,
     generation_non_hydraulic,
 )
@@ -26,6 +27,20 @@ class IntegratedMarketResult:
     status: pd.DataFrame
     methodologies: list[str]
     warnings: list[str] = field(default_factory=list)
+
+
+def _local_period_start(values: pd.Series, frequency: str) -> pd.Series:
+    """Convierte instantes UTC al inicio del día o mes civil de Colombia."""
+
+    local = pd.to_datetime(values, errors="coerce", utc=True).dt.tz_convert("America/Bogota")
+    naive = local.dt.tz_localize(None)
+    if frequency == "daily":
+        period = naive.dt.floor("D")
+    elif frequency == "monthly":
+        period = naive.dt.to_period("M").dt.to_timestamp()
+    else:
+        raise ValueError(f"Frecuencia local no soportada: {frequency}")
+    return period.dt.tz_localize("UTC")
 
 
 def resource_catalog(provider: XMProvider) -> pd.DataFrame:
@@ -94,26 +109,67 @@ def attach_resource_metadata(frame: pd.DataFrame, resources: pd.DataFrame) -> pd
 def spot_price(provider: XMProvider, start: object, end: object, frequency: str) -> pd.DataFrame:
     raw = provider.fetch("PrecBolsNaci", "Sistema", start, end)
     data = raw.data[["datetime", "value"]].copy()
-    data["datetime"] = pd.to_datetime(data["datetime"], utc=True)
-    freq = "D" if frequency == "daily" else "MS"
-    result = data.groupby(pd.Grouper(key="datetime", freq=freq))["value"].mean().reset_index()
-    return add_change_columns(result, frequency=frequency)
+    data["datetime"] = _local_period_start(data["datetime"], frequency)
+    result = data.groupby("datetime", as_index=False)["value"].mean()
+    result = add_change_columns(result, frequency=frequency)
+    return add_price_returns(result)
 
 
 def national_demand(
     provider: XMProvider, start: object, end: object, frequency: str
 ) -> pd.DataFrame:
     raw = provider.fetch("DemaSIN", "Sistema", start, end, target_unit="GWh")
-    data = raw.data[["datetime", "value"]].copy()
-    data["datetime"] = pd.to_datetime(data["datetime"], utc=True)
+    available_columns = [column for column in ("datetime", "value", "period") if column in raw.data]
+    data = raw.data[available_columns].copy()
+    local = pd.to_datetime(data["datetime"], errors="coerce", utc=True).dt.tz_convert(
+        "America/Bogota"
+    )
+    data["día_local"] = local.dt.tz_localize(None).dt.floor("D")
+    daily = (
+        data.groupby("día_local", as_index=False)["value"]
+        .agg(GWh_día="sum", intervalos_recibidos="count")
+        .sort_values("día_local")
+    )
+
+    source_frequency = getattr(raw.meta, "frequency", "hourly")
+    expected_intervals = 1
+    if source_frequency == "hourly":
+        maximum_period = (
+            pd.to_numeric(data["period"], errors="coerce").max()
+            if "period" in data
+            else pd.NA
+        )
+        expected_intervals = max(24, int(maximum_period)) if pd.notna(maximum_period) else 24
+    daily["intervalos_esperados"] = expected_intervals
+    daily["día_completo"] = daily["intervalos_recibidos"].ge(expected_intervals)
+    daily["datetime"] = pd.to_datetime(daily["día_local"]).dt.tz_localize("UTC")
+
+    excluded_days = daily.loc[~daily["día_completo"], "datetime"].tolist()
+    complete_daily = daily[daily["día_completo"]].copy()
     if frequency == "daily":
-        result = data.groupby(pd.Grouper(key="datetime", freq="D"))["value"].sum().reset_index()
-        result["GWh_día"] = result["value"]
+        result = complete_daily[
+            ["datetime", "GWh_día", "intervalos_recibidos", "intervalos_esperados"]
+        ].copy()
+        result["value"] = result["GWh_día"]
     else:
-        result = data.groupby(pd.Grouper(key="datetime", freq="MS"))["value"].sum().reset_index()
-        result["GWh_mes"] = result["value"]
-        result["GWh_día"] = result["value"] / result["datetime"].dt.days_in_month
+        complete_daily["datetime"] = _local_period_start(complete_daily["datetime"], "monthly")
+        monthly = complete_daily.groupby("datetime", as_index=False).agg(
+            GWh_mes=("GWh_día", "sum"),
+            días_recibidos=("día_local", "nunique"),
+        )
+        monthly["días_esperados"] = monthly["datetime"].dt.days_in_month
+        complete_months = monthly["días_recibidos"].eq(monthly["días_esperados"])
+        excluded_months = monthly.loc[~complete_months, "datetime"].tolist()
+        result = monthly[complete_months].copy()
+        result["GWh_día"] = result["GWh_mes"] / result["días_esperados"]
+        result["value"] = result["GWh_mes"]
+        excluded_days.extend(excluded_months)
     result = add_change_columns(result, value_column="GWh_día", frequency=frequency)
+    result.attrs["excluded_incomplete_periods"] = excluded_days
+    result.attrs["last_complete_period"] = (
+        pd.to_datetime(result["datetime"], utc=True).max() if not result.empty else None
+    )
+    result.attrs["expected_intervals_per_day"] = expected_intervals
     return result
 
 

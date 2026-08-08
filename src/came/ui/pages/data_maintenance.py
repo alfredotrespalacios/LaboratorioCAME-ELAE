@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import tempfile
 from datetime import date
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
@@ -16,13 +18,15 @@ from came.data.maintenance import (
 )
 from came.data.monthly_store import (
     LONG_COLUMNS,
-    MonthlyPackage,
+    StoredMonthlyPackage,
     create_monthly_package,
     get_package_spec,
     last_complete_month,
     load_default_metadata,
     load_default_monthly,
+    load_stored_monthly_package,
     merge_monthly_data,
+    store_monthly_package,
 )
 
 OPERATION_UPDATE = "Agregar meses faltantes"
@@ -51,10 +55,14 @@ def _progress_callback(container: st.delta_generator.DeltaGenerator):
     def update(event: ProgressEvent) -> None:
         progress = event.current / max(event.total, 1)
         bar.progress(min(max(progress, 0.0), 1.0))
-        detail.caption(
+        message = (
             f"{event.source} · {event.variable} · {event.period} · {event.status} "
             f"({event.current}/{event.total})"
         )
+        if event.detail:
+            detail.error(f"{message}\n\nDetalle: {event.detail}")
+        else:
+            detail.caption(message)
 
     return update
 
@@ -72,58 +80,129 @@ def _show_current_state(country: str, data: pd.DataFrame, metadata: dict[str, ob
     columns[3].metric("Versión", str(metadata.get("schema_version", "Sin JSON")))
 
 
-def _show_result(result: BuildResult, package: MonthlyPackage | None, key: str) -> None:
+def _result_for_session(
+    result: BuildResult,
+    package: StoredMonthlyPackage | None,
+) -> dict[str, object]:
+    """Conserva solo un resumen pequeño; la base y el ZIP permanecen en disco."""
+
+    return {
+        "status": result.status,
+        "warnings": list(result.warnings),
+        "errors": list(result.errors),
+        "package_directory": str(package.directory) if package else None,
+        "country": result.country,
+    }
+
+
+def _package_from_state(state: dict[str, object]) -> StoredMonthlyPackage | None:
+    directory = state.get("package_directory")
+    country = state.get("country")
+    if not directory or not country:
+        return None
+    return load_stored_monthly_package(str(directory), str(country))
+
+
+def _download_file(
+    label: str,
+    path,
+    *,
+    file_name: str,
+    mime: str,
+    key: str,
+    primary: bool = False,
+) -> None:
+    with path.open("rb") as content:
+        st.download_button(
+            label,
+            data=content,
+            file_name=file_name,
+            mime=mime,
+            type="primary" if primary else "secondary",
+            key=key,
+        )
+
+
+def _show_result(state: dict[str, object], key: str) -> None:
     st.subheader("Resultado de la ejecución")
-    if not result.status.empty:
-        st.dataframe(result.status, use_container_width=True, hide_index=True)
-    if result.warnings:
-        for warning in result.warnings:
+    status = state.get("status")
+    warnings = list(state.get("warnings", []))
+    errors = list(state.get("errors", []))
+    if isinstance(status, pd.DataFrame) and not status.empty:
+        st.dataframe(status, use_container_width=True, hide_index=True)
+    if warnings:
+        for warning in warnings:
             st.warning(warning)
-    if result.errors:
+    if errors:
         st.error(
-            "No se generó un paquete para publicar. Los bloques aprobados quedaron guardados "
-            "temporalmente; corrija la fuente o pulse de nuevo para reanudar."
+            "La ejecución terminó, pero NO se creó el ZIP porque una o más fuentes fallaron. "
+            "Los bloques aprobados quedaron guardados "
+            "temporalmente. Pulse de nuevo con la misma operación y el mismo periodo: "
+            "la aplicación reutilizará los bloques aprobados y reintentará únicamente los pendientes."
         )
         with st.expander("Errores que deben resolverse", expanded=True):
-            for error in result.errors:
+            for error in errors:
                 st.write(f"- {error}")
         return
-    if package is None:
-        st.error("La construcción terminó sin errores de fuente, pero no produjo un paquete.")
+    try:
+        package = _package_from_state(state)
+    except Exception as exc:
+        st.error(
+            "La construcción terminó, pero los archivos de descarga no pudieron recuperarse. "
+            f"Detalle: {exc}"
+        )
         return
-    st.success("Paquete validado. Puede descargarlo y publicar juntos sus tres archivos.")
+    if package is None:
+        st.error(
+            "La construcción terminó sin errores de fuente, pero no quedó un paquete guardado. "
+            "Ejecute nuevamente la misma operación; los bloques aprobados se reutilizarán."
+        )
+        return
+    st.success("Paquete listo. El ZIP quedó guardado y ya puede descargarlo.")
     st.dataframe(package.validation.as_frame(), use_container_width=True, hide_index=True)
     spec = package.spec
-    st.download_button(
+    metrics = st.columns(3)
+    metrics[0].metric("Tamaño del ZIP", f"{package.zip_path.stat().st_size / 1_048_576:.1f} MB")
+    metrics[1].metric("Series", f"{int(package.metadata.get('series', 0)):,}")
+    metrics[2].metric("Último mes", str(package.metadata.get("last_complete_month", "")))
+    st.info(
+        "Después de descomprimir el ZIP, copie sus tres archivos en esta carpeta exacta "
+        f"del repositorio: `{spec.relative_directory.as_posix()}/`. "
+        "Reemplace los tres juntos y conserve sus nombres."
+    )
+    _download_file(
         "Descargar ZIP listo para GitHub",
-        data=package.zip_bytes,
+        package.zip_path,
         file_name=f"Base_mensual_{spec.label}.zip",
         mime="application/zip",
-        type="primary",
         key=f"{key}_zip",
+        primary=True,
     )
     columns = st.columns(3)
-    columns[0].download_button(
-        spec.parquet_name,
-        package.parquet_bytes,
-        file_name=spec.parquet_name,
-        mime="application/octet-stream",
-        key=f"{key}_parquet",
-    )
-    columns[1].download_button(
-        spec.catalog_name,
-        package.catalog_bytes,
-        file_name=spec.catalog_name,
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        key=f"{key}_catalog",
-    )
-    columns[2].download_button(
-        spec.metadata_name,
-        package.metadata_bytes,
-        file_name=spec.metadata_name,
-        mime="application/json",
-        key=f"{key}_metadata",
-    )
+    with columns[0]:
+        _download_file(
+            spec.parquet_name,
+            package.parquet_path,
+            file_name=spec.parquet_name,
+            mime="application/octet-stream",
+            key=f"{key}_parquet",
+        )
+    with columns[1]:
+        _download_file(
+            spec.catalog_name,
+            package.catalog_path,
+            file_name=spec.catalog_name,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=f"{key}_catalog",
+        )
+    with columns[2]:
+        _download_file(
+            spec.metadata_name,
+            package.metadata_path,
+            file_name=spec.metadata_name,
+            mime="application/json",
+            key=f"{key}_metadata",
+        )
 
 
 def _period_controls(
@@ -206,6 +285,11 @@ def _colombia_section(timeout: int) -> None:
         value=False,
         key="maintenance_col_clear",
     )
+    st.caption(
+        "Si aparece un error como `XM · DemaSIN · 2004...`, no marque la opción anterior. "
+        "Ejecute de nuevo la misma operación: los años aprobados se reutilizan y el año fallido "
+        "se intenta nuevamente. Cada bloque tiene tres intentos automáticos."
+    )
     button_label = (
         "Reanudar o iniciar construcción"
         if operation != OPERATION_UPDATE
@@ -233,7 +317,7 @@ def _colombia_section(timeout: int) -> None:
         package = None
         if result.ok:
             try:
-                package = create_monthly_package(
+                monthly_package = create_monthly_package(
                     result.data,
                     "COL",
                     additional_sheets=_additional_sheets(result),
@@ -242,12 +326,16 @@ def _colombia_section(timeout: int) -> None:
                         "La asociación histórica recurso–empresa corresponde al catálogo XM usado en la consulta.",
                     ],
                 )
+                package = store_monthly_package(
+                    monthly_package,
+                    builder.checkpoints.directory / "package",
+                )
             except Exception as exc:
                 result.errors.append(str(exc))
-        st.session_state["maintenance_col_result"] = (result, package)
+        st.session_state["maintenance_col_result"] = _result_for_session(result, package)
     state = st.session_state.get("maintenance_col_result")
-    if state:
-        _show_result(state[0], state[1], "maintenance_col")
+    if isinstance(state, dict):
+        _show_result(state, "maintenance_col")
 
 
 def _spain_section(timeout: int) -> None:
@@ -292,18 +380,22 @@ def _spain_section(timeout: int) -> None:
         package = None
         if result.ok:
             try:
-                package = create_monthly_package(
+                monthly_package = create_monthly_package(
                     result.data,
                     "ESP",
                     additional_sheets=_additional_sheets(result),
                     build_notes=[f"Operación: {operation}."],
                 )
+                package = store_monthly_package(
+                    monthly_package,
+                    builder.checkpoints.directory / "package",
+                )
             except Exception as exc:
                 result.errors.append(str(exc))
-        st.session_state["maintenance_esp_result"] = (result, package)
+        st.session_state["maintenance_esp_result"] = _result_for_session(result, package)
     state = st.session_state.get("maintenance_esp_result")
-    if state:
-        _show_result(state[0], state[1], "maintenance_esp")
+    if isinstance(state, dict):
+        _show_result(state, "maintenance_esp")
 
 
 def _chile_section(timeout: int) -> None:
@@ -358,7 +450,7 @@ def _chile_section(timeout: int) -> None:
         package = None
         if result.ok:
             try:
-                package = create_monthly_package(
+                monthly_package = create_monthly_package(
                     result.data,
                     "CHL",
                     additional_sheets=_additional_sheets(result),
@@ -366,18 +458,30 @@ def _chile_section(timeout: int) -> None:
                         "Actualización construida desde exportaciones oficiales cargadas por el usuario."
                     ],
                 )
+                output = (
+                    Path(tempfile.gettempdir())
+                    / "laboratorio_came"
+                    / "CHL_archivos"
+                    / "package"
+                )
+                package = store_monthly_package(monthly_package, output)
             except Exception as exc:
                 result.errors.append(str(exc))
-        st.session_state["maintenance_chl_result"] = (result, package)
+        st.session_state["maintenance_chl_result"] = _result_for_session(result, package)
     state = st.session_state.get("maintenance_chl_result")
-    if state:
-        _show_result(state[0], state[1], "maintenance_chl")
+    if isinstance(state, dict):
+        _show_result(state, "maintenance_chl")
 
 
 def _publication_guide() -> None:
     st.subheader("Cómo publicar una actualización")
+    st.info(
+        "El ZIP ya contiene la ruta correcta. Dentro del repositorio del Laboratorio CAME, "
+        "los archivos deben quedar en `datos_por_defecto/colombia/`, "
+        "`datos_por_defecto/espana/` o `datos_por_defecto/chile/`, según el país."
+    )
     st.markdown(
-        "1. Construya o actualice un país y espere el mensaje **Paquete validado**.\n"
+        "1. Construya o actualice un país y espere el mensaje **Paquete listo**.\n"
         "2. Descargue el ZIP; no publique archivos de una ejecución con errores.\n"
         "3. Descomprímalo y abra en GitHub la carpeta exacta incluida en el ZIP.\n"
         "4. Reemplace juntos el Parquet, el catálogo Excel y el JSON, sin cambiar sus nombres.\n"

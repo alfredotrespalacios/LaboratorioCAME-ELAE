@@ -4,7 +4,7 @@ Aplicación académica de ELAE para consultar, analizar y modelar mercados eléc
 construida con Streamlit y Plotly, usa fuentes oficiales abiertas y mantiene visibles las unidades,
 supuestos, coberturas y limitaciones de cada resultado.
 
-La entrega contiene los 19 módulos acordados, exportaciones Excel/PDF, canasta para informe
+La entrega contiene los 19 módulos acordados, exportaciones Excel/PDF, canasta manual para informe
 ejecutivo, acceso por contraseña, pruebas numéricas contra los Excel pedagógicos y un sistema
 mensual versionable que no requiere una base de datos externa.
 
@@ -24,6 +24,11 @@ puede construir la primera base, agregar meses, recalcular un periodo, reanudar 
 validar el resultado y descargar el ZIP listo para GitHub. No es un módulo de análisis y no se
 utiliza durante la operación normal.
 
+Al aprobarse la validación, Mantenimiento escribe primero el ZIP y sus tres archivos en el disco
+temporal de la instancia y después muestra las descargas. El botón permanece disponible durante
+los `rerun` y la navegación de esa sesión. Si alguna fuente termina con error, la pantalla indica
+explícitamente que no creó el ZIP y permite reanudar los bloques pendientes.
+
 ## Bases mensuales publicadas
 
 Cada país conserva tres archivos juntos. Colombia usa exactamente:
@@ -38,6 +43,15 @@ datos_por_defecto/colombia/
 España y Chile siguen la misma estructura en sus carpetas. El Parquet tiene formato largo y puede
 guardar series nacionales, por tecnología, empresa y recurso sin crear una tabla inmanejable de
 columnas. Los módulos convierten únicamente las series seleccionadas a formato ancho.
+
+Precio y Demanda abren primero la base mensual precargada. La consulta directa a XM permanece en
+una pestaña opcional para datos diarios o contrastes. Demanda excluye los días a los que les falten
+intervalos y muestra el último día completo; Precio exporta tanto la variación porcentual como el
+rendimiento logarítmico.
+
+Ningún resultado entra automáticamente al Informe ejecutivo. El usuario debe pulsar **Guardar
+resultado para el informe ejecutivo**; la selección se conserva únicamente durante la sesión de
+Streamlit.
 
 ## Inicio local
 

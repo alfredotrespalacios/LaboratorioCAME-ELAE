@@ -115,6 +115,22 @@ class MonthlyPackage:
     zip_bytes: bytes
 
 
+@dataclass(frozen=True)
+class StoredMonthlyPackage:
+    """Rutas de un paquete ya escrito en el disco temporal de Streamlit."""
+
+    spec: CountryPackageSpec
+    directory: Path
+    zip_path: Path
+    parquet_path: Path
+    catalog_path: Path
+    metadata_path: Path
+    manifest_path: Path
+    metadata: dict[str, Any]
+    validation: ValidationResult
+    created_at_utc: str
+
+
 def get_package_spec(country: str) -> CountryPackageSpec:
     code = str(country).upper()
     if code not in PACKAGE_SPECS:
@@ -358,6 +374,109 @@ def create_monthly_package(
         catalog_bytes=catalog_bytes,
         metadata_bytes=metadata_bytes,
         zip_bytes=zip_buffer.getvalue(),
+    )
+
+
+def _write_bytes_atomically(path: Path, content: bytes) -> None:
+    """Escribe primero un temporal y publica el archivo solo cuando está completo."""
+
+    temporary = path.with_name(f".{path.name}.tmp")
+    temporary.write_bytes(content)
+    temporary.replace(path)
+
+
+def store_monthly_package(
+    package: MonthlyPackage,
+    directory: str | Path,
+) -> StoredMonthlyPackage:
+    """Guarda el paquete y un manifiesto recuperable después de un rerun de Streamlit."""
+
+    output = Path(directory)
+    output.mkdir(parents=True, exist_ok=True)
+    spec = package.spec
+    zip_name = f"Base_mensual_{spec.label}.zip"
+    zip_path = output / zip_name
+    parquet_path = output / spec.parquet_name
+    catalog_path = output / spec.catalog_name
+    metadata_path = output / spec.metadata_name
+    manifest_path = output / "Paquete_listo.json"
+
+    _write_bytes_atomically(parquet_path, package.parquet_bytes)
+    _write_bytes_atomically(catalog_path, package.catalog_bytes)
+    _write_bytes_atomically(metadata_path, package.metadata_bytes)
+    _write_bytes_atomically(zip_path, package.zip_bytes)
+
+    created_at = str(package.metadata.get("created_at_utc", datetime.now(timezone.utc).isoformat()))
+    manifest = {
+        "country": spec.code,
+        "created_at_utc": created_at,
+        "zip_name": zip_name,
+        "parquet_name": spec.parquet_name,
+        "catalog_name": spec.catalog_name,
+        "metadata_name": spec.metadata_name,
+        "validation_ok": package.validation.ok,
+        "validation_issues": package.validation.issues,
+        "validation_summary": package.validation.summary,
+        "sizes": {
+            zip_name: len(package.zip_bytes),
+            spec.parquet_name: len(package.parquet_bytes),
+            spec.catalog_name: len(package.catalog_bytes),
+            spec.metadata_name: len(package.metadata_bytes),
+        },
+    }
+    manifest_bytes = json.dumps(manifest, ensure_ascii=False, indent=2, default=str).encode("utf-8")
+    _write_bytes_atomically(manifest_path, manifest_bytes)
+    return load_stored_monthly_package(output, spec.code, required=True)
+
+
+def load_stored_monthly_package(
+    directory: str | Path,
+    country: str,
+    *,
+    required: bool = False,
+) -> StoredMonthlyPackage | None:
+    """Recupera las descargas listas sin reconstruir el paquete en memoria."""
+
+    output = Path(directory)
+    manifest_path = output / "Paquete_listo.json"
+    if not manifest_path.exists():
+        if required:
+            raise FileNotFoundError(f"No existe el manifiesto del paquete en {output}.")
+        return None
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    spec = get_package_spec(country)
+    if manifest.get("country") != spec.code:
+        raise ValueError(
+            f"El paquete guardado corresponde a {manifest.get('country')}, no a {spec.code}."
+        )
+    zip_path = output / str(manifest["zip_name"])
+    parquet_path = output / str(manifest["parquet_name"])
+    catalog_path = output / str(manifest["catalog_name"])
+    metadata_path = output / str(manifest["metadata_name"])
+    paths = (zip_path, parquet_path, catalog_path, metadata_path)
+    missing = [path.name for path in paths if not path.is_file() or path.stat().st_size == 0]
+    if missing:
+        raise FileNotFoundError(
+            "El paquete guardado está incompleto. Faltan: " + ", ".join(missing) + "."
+        )
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    validation = ValidationResult(
+        ok=bool(manifest.get("validation_ok")),
+        issues=list(manifest.get("validation_issues", [])),
+        summary=dict(manifest.get("validation_summary", {})),
+    )
+    return StoredMonthlyPackage(
+        spec=spec,
+        directory=output,
+        zip_path=zip_path,
+        parquet_path=parquet_path,
+        catalog_path=catalog_path,
+        metadata_path=metadata_path,
+        manifest_path=manifest_path,
+        metadata=metadata,
+        validation=validation,
+        created_at_utc=str(manifest.get("created_at_utc", "")),
     )
 
 

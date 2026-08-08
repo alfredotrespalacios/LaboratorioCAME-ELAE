@@ -1,4 +1,4 @@
-# Laboratorio CAME — especificación funcional v1.1
+# Laboratorio CAME — especificación funcional v1.2
 
 Fecha de consolidación: 8 de agosto de 2026.
 
@@ -27,6 +27,11 @@ permitir exportar resultados y soportar un uso pedagógico por estudiantes autor
 La base integrada incluye la variable calculada:
 
 `Generación no hidráulica (GWh-día) = Demanda nacional (GWh-día) - Generación hidráulica (GWh-día)`.
+
+Precio y Demanda mensual abren automáticamente el paquete precargado. La consulta directa a XM es
+opcional y se usa para información diaria o contrastes. Precio muestra variación porcentual y
+rendimiento logarítmico. Demanda agrega según el día civil de Colombia y oculta periodos con menos
+intervalos que los esperados, indicando el último periodo completo.
 
 La exportación Excel del módulo 4 conserva el histórico mensual de todos los recursos del periodo
 consultado, aunque la gráfica y el PDF se limiten a los elementos seleccionados. Incluye hojas
@@ -77,6 +82,12 @@ para Colombia, España y Chile bajo `datos_por_defecto/`.
 - Pronósticos, SARIMA–GARCH y Monte Carlo leen directamente el Parquet del país seleccionado; no
   dependen de que el usuario ejecute primero el módulo 6.
 - Cada módulo visible tiene su propio archivo en `src/came/ui/pages/`.
+- Los botones secundarios y deshabilitados usan fondo gris y texto legible; los gráficos comparten
+  una cuadrícula de contraste medio.
+- Ningún resultado se guarda automáticamente para el Informe ejecutivo. El usuario decide mediante
+  un botón y la canasta solo vive durante la sesión de Streamlit.
+- Los bloques temporalmente indisponibles tienen tres intentos de alto nivel, además de los
+  reintentos HTTP, y conservan los puntos de avance para la siguiente ejecución.
 - La contraseña se configura únicamente mediante secretos de despliegue.
 - El uso es académico y no sustituye análisis profesional, regulatorio u operativo.
 

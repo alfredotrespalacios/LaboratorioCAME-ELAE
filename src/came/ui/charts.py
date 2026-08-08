@@ -6,13 +6,34 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import plotly.io as pio
 
 from came.config import COLORS
+
+GRID_COLOR = "#CBD5E1"
+ZERO_LINE_COLOR = "#98A2B3"
+
+
+def configure_plotly_theme() -> None:
+    """Aplica una cuadrícula legible incluso a figuras creadas fuera de este archivo."""
+
+    pio.templates["came"] = go.layout.Template(
+        layout=go.Layout(
+            paper_bgcolor=COLORS["light"],
+            plot_bgcolor=COLORS["light"],
+            font=dict(color="#101828"),
+            colorway=[COLORS["blue"], COLORS["gold"], COLORS["green"], COLORS["red"]],
+            xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=ZERO_LINE_COLOR),
+            yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=ZERO_LINE_COLOR),
+        )
+    )
+    pio.templates.default = "came"
+    px.defaults.template = "came"
 
 
 def style_figure(figure: go.Figure, *, y_title: str = "", x_title: str = "") -> go.Figure:
     figure.update_layout(
-        template="plotly_white",
+        template="came",
         colorway=[COLORS["blue"], COLORS["gold"], COLORS["green"], COLORS["red"]],
         paper_bgcolor=COLORS["light"],
         plot_bgcolor=COLORS["light"],
@@ -23,8 +44,8 @@ def style_figure(figure: go.Figure, *, y_title: str = "", x_title: str = "") -> 
         xaxis_title=x_title,
         yaxis_title=y_title,
     )
-    figure.update_xaxes(gridcolor="#E4E7EC", zerolinecolor="#D0D5DD")
-    figure.update_yaxes(gridcolor="#E4E7EC", zerolinecolor="#D0D5DD")
+    figure.update_xaxes(gridcolor=GRID_COLOR, zerolinecolor=ZERO_LINE_COLOR)
+    figure.update_yaxes(gridcolor=GRID_COLOR, zerolinecolor=ZERO_LINE_COLOR)
     return figure
 
 

@@ -4,11 +4,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from came.analytics.aggregation import generation_non_hydraulic, weighted_price
+from came.analytics.aggregation import add_price_returns, generation_non_hydraulic, weighted_price
 from came.analytics.demand import deduplicate_unserved_demand
 from came.analytics.generation import aggregate_generation_monthly_history
 from came.analytics.modeling import fit_supervised, prepare_model_matrix
+from came.data.colombia import national_demand
 from came.errors import DataQualityError
+from came.schema import DataResult, SeriesMeta
 
 
 def test_generation_non_hydraulic_is_demand_minus_hydro() -> None:
@@ -18,6 +20,54 @@ def test_generation_non_hydraulic_is_demand_minus_hydro() -> None:
 
 def test_weighted_price() -> None:
     assert weighted_price([10, 20], [1, 3]) == pytest.approx(17.5)
+
+
+def test_price_returns_include_simple_and_logarithmic_definitions() -> None:
+    frame = pd.DataFrame(
+        {
+            "datetime": pd.date_range("2026-01-01", periods=2, freq="MS", tz="UTC"),
+            "value": [100.0, 110.0],
+        }
+    )
+    result = add_price_returns(frame)
+    assert result.loc[1, "Variación_porcentual_pct"] == pytest.approx(10.0)
+    assert result.loc[1, "Rendimiento_logarítmico_pct"] == pytest.approx(np.log(1.1) * 100)
+
+
+class IncompleteDemandProvider:
+    def fetch(self, *args, **kwargs):
+        first_day = pd.date_range("2026-08-01 05:00", periods=24, freq="h", tz="UTC")
+        incomplete_day = pd.date_range("2026-08-02 05:00", periods=6, freq="h", tz="UTC")
+        dates = first_day.append(incomplete_day)
+        data = pd.DataFrame(
+            {
+                "datetime": dates,
+                "value": 1.0,
+                "period": [*range(1, 25), *range(1, 7)],
+            }
+        )
+        meta = SeriesMeta(
+            country="COL",
+            source="XM",
+            dataset="DemaSIN",
+            variable_id="DemaSIN",
+            variable_name="Demanda",
+            unit="GWh",
+            frequency="hourly",
+            aggregation="original",
+        )
+        return DataResult(data=data, meta=meta)
+
+
+def test_daily_demand_hides_the_last_incomplete_day() -> None:
+    result = national_demand(
+        IncompleteDemandProvider(), "2026-08-01", "2026-08-02", frequency="daily"
+    )
+    assert len(result) == 1
+    assert result.loc[0, "GWh_día"] == pytest.approx(24.0)
+    assert result.loc[0, "intervalos_recibidos"] == 24
+    assert pd.Timestamp(result.attrs["last_complete_period"]).date().isoformat() == "2026-08-01"
+    assert len(result.attrs["excluded_incomplete_periods"]) == 1
 
 
 def test_demand_hierarchy_uses_area_not_area_plus_subarea() -> None:

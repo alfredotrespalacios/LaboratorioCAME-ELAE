@@ -83,6 +83,25 @@ def add_change_columns(
     return data
 
 
+def add_price_returns(
+    frame: pd.DataFrame,
+    *,
+    value_column: str = "value",
+) -> pd.DataFrame:
+    """Añade rendimiento simple y logarítmico entre observaciones consecutivas."""
+
+    data = frame.sort_values("datetime").copy()
+    prices = pd.to_numeric(data[value_column], errors="coerce")
+    previous = prices.shift(1)
+    data["Variación_porcentual_pct"] = prices.pct_change(fill_method=None) * 100
+    valid_log = prices.gt(0) & previous.gt(0)
+    data["Rendimiento_logarítmico_pct"] = np.nan
+    data.loc[valid_log, "Rendimiento_logarítmico_pct"] = (
+        np.log(prices[valid_log] / previous[valid_log]) * 100
+    )
+    return data
+
+
 def summary_indicators(frame: pd.DataFrame, value_column: str = "value") -> dict[str, float | None]:
     values = pd.to_numeric(frame[value_column], errors="coerce").dropna()
     if values.empty:

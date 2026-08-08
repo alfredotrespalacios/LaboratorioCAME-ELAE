@@ -36,6 +36,14 @@ def available_countries() -> dict[str, pd.DataFrame]:
     return available
 
 
+def published_series(country: str, series_ids: list[str] | tuple[str, ...]) -> pd.DataFrame:
+    """Carga únicamente las series solicitadas del Parquet mensual publicado."""
+
+    data = _load_country(country)
+    selected = data[data["series_id"].isin(series_ids)].copy()
+    return selected.sort_values(["datetime", "series_id"], kind="stable").reset_index(drop=True)
+
+
 def modeling_data_or_message(*, key: str) -> ModelingData | None:
     """Selecciona un país y entrega una tabla ancha con nombres de columnas legibles."""
 

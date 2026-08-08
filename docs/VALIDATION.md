@@ -1,17 +1,25 @@
-# Informe de validación v1.1.0
+# Informe de validación v1.2.1
 
 Fecha: 8 de agosto de 2026.
 
 ## Resultado
 
 - Lint: `ruff check .` sin hallazgos.
-- Pruebas locales: 43 aprobadas.
-- Contratos vivos: 3 aprobados (XM, REData y OMIE).
+- Pruebas locales: 49 aprobadas.
+- Contratos vivos: no ejecutados en este entorno restringido; los 3 contratos fueron aprobados en
+  la validación v1.1.0.
 - Smoke de Streamlit: página inicial cargada sin excepciones en modo local.
 - Compilación: todos los módulos Python compilados.
 - Secretos: no se incorpora `secrets.toml`, `.env` ni contraseña real.
 - Empaquetado mensual: Parquet, Excel, JSON y ZIP aprobados con datos sintéticos trazables.
+- Persistencia de descarga: ZIP y archivos individuales recuperados desde disco temporal después
+  de volver a ejecutar la interfaz de Streamlit.
 - Navegación: cada página visible se importa desde un archivo Python independiente.
+- Precio y Demanda: apertura desde el Parquet mensual, con consulta XM opcional.
+- Calidad diaria: un día incompleto de demanda se excluye y se informa el último día completo.
+- Informe ejecutivo: la canasta permanece vacía hasta que el usuario pulsa el botón de guardado.
+- Mantenimiento: un bloque temporalmente fallido se recupera dentro de tres intentos y conserva
+  los puntos de avance.
 
 ## Contraste con los Excel entregados
 

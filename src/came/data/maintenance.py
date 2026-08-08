@@ -27,8 +27,10 @@ from came.data.providers.macro import MacroProvider
 from came.data.providers.omie import OmieProvider
 from came.data.providers.redata import REDataProvider
 from came.data.providers.xm import XMProvider
+from came.errors import SourceUnavailableError
 
 ProgressCallback = Callable[["ProgressEvent"], None]
+MAX_SOURCE_ATTEMPTS = 3
 
 
 @dataclass(frozen=True)
@@ -277,12 +279,24 @@ class ColombiaMonthlyBuilder:
         cached = self.checkpoints.get(key)
         if cached is not None:
             return cached, None, True
-        try:
-            frame = loader()
-            self.checkpoints.put(key, frame)
-            return frame, None, False
-        except Exception as exc:
-            return None, str(exc), False
+        last_error: Exception | None = None
+        for attempt in range(1, MAX_SOURCE_ATTEMPTS + 1):
+            try:
+                frame = loader()
+                self.checkpoints.put(key, frame)
+                return frame, None, False
+            except SourceUnavailableError as exc:
+                last_error = exc
+                if attempt == MAX_SOURCE_ATTEMPTS:
+                    break
+            except Exception as exc:
+                return None, str(exc), False
+        return (
+            None,
+            f"{last_error} Se realizaron {MAX_SOURCE_ATTEMPTS} intentos automáticos "
+            "para este bloque.",
+            False,
+        )
 
     def _system_task(
         self,

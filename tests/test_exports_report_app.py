@@ -8,7 +8,7 @@ import pytest
 from openpyxl import load_workbook
 from streamlit.testing.v1 import AppTest
 
-from came.data.monthly_store import get_package_spec
+from came.data.monthly_store import create_monthly_package, get_package_spec, store_monthly_package
 from came.exports import build_excel, build_pdf
 from came.report import build_executive_prompt, make_package
 
@@ -117,9 +117,91 @@ def test_data_maintenance_explains_the_complete_update_flow() -> None:
     assert "Agregar meses faltantes" in page
     assert "Construir la primera base" in page
     assert "Recalcular un periodo" in page
-    assert "Paquete validado" in page
+    assert "Paquete listo" in page
+    assert "datos_por_defecto/colombia/" in page
+    assert "tres intentos automáticos" in page
     assert "la aplicación nunca lo reemplaza automáticamente" in page
     assert "administrador" not in page.lower()
+
+
+def test_data_maintenance_shows_downloads_from_the_stored_package(tmp_path) -> None:
+    data = pd.DataFrame(
+        [
+            {
+                "datetime": pd.Timestamp("2024-01-01", tz="UTC"),
+                "country": "COL",
+                "family": "Mercado",
+                "level": "Sistema",
+                "entity_code": "SIN",
+                "entity_name": "Colombia",
+                "variable": "Precio",
+                "unit": "COP/kWh",
+                "value": 100.0,
+                "source": "XM",
+                "dataset": "Prueba/Sistema",
+                "aggregation": "Promedio mensual",
+                "series_id": "col_precio_prueba",
+                "series_name": "Precio de prueba",
+                "catalog_date": "2026-08-08",
+            }
+        ]
+    )
+    package = create_monthly_package(data, "COL", reference="2024-02-15")
+    stored = store_monthly_package(package, tmp_path / "package")
+    script = f'''
+import pandas as pd
+from came.ui.pages.data_maintenance import _show_result
+
+_show_result(
+    {{
+        "status": pd.DataFrame(),
+        "warnings": [],
+        "errors": [],
+        "package_directory": {str(stored.directory)!r},
+        "country": "COL",
+    }},
+    "stored_package_test",
+)
+'''
+
+    app = AppTest.from_string(script, default_timeout=30).run()
+
+    assert not app.exception
+    labels = [button.label for button in app.get("download_button")]
+    assert "Descargar ZIP listo para GitHub" in labels
+    assert package.spec.parquet_name in labels
+    assert package.spec.catalog_name in labels
+    assert package.spec.metadata_name in labels
+
+    app.run()
+    labels_after_rerun = [button.label for button in app.get("download_button")]
+    assert "Descargar ZIP listo para GitHub" in labels_after_rerun
+
+
+def test_result_is_saved_for_the_report_only_after_clicking_the_button() -> None:
+    script = """
+import pandas as pd
+from came.ui.components import export_and_collect
+
+export_and_collect(
+    module="Prueba",
+    title="Resultado de prueba",
+    data=pd.DataFrame({"value": [1.0]}),
+    indicators={"promedio": 1.0},
+    parameters={},
+    methodology=["Prueba"],
+    source="Prueba",
+    unit="unidad",
+    period="2026",
+    key="manual_report_test",
+)
+"""
+    app = AppTest.from_string(script, default_timeout=30).run()
+    assert not app.exception
+    assert "report_packages" not in app.session_state.filtered_state
+    save = next(button for button in app.button if "Guardar resultado" in button.label)
+    save.click().run()
+    assert len(app.session_state["report_packages"]) == 1
 
 
 def test_generation_resource_excel_includes_all_monthly_history() -> None:
