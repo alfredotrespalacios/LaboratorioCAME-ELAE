@@ -1,0 +1,30 @@
+{
+  "schema_version": "2.0",
+  "country": "COL",
+  "country_name": "Colombia",
+  "created_at_utc": "2026-08-08T12:22:15.988253+00:00",
+  "last_complete_month": "2016-07-01",
+  "first_month": "2009-12-01",
+  "rows": 32992,
+  "series": 557,
+  "sources": [
+    "Banco de la República / datos.gov.co",
+    "Cálculo CAME con datos XM",
+    "NOAA/CPC",
+    "XM"
+  ],
+  "notes": [
+    "Operación: Construir la primera base.",
+    "La asociación histórica recurso–empresa corresponde al catálogo XM usado en la consulta."
+  ],
+  "files": {
+    "Base_integrada_mensual.parquet": {
+      "sha256": "18d25f4265e4bad4a6c011db33deec6387e682ebbf46ce6f06ceb321f4c76345",
+      "bytes": 340619
+    },
+    "Catalogo_Base_integrada.xlsx": {
+      "sha256": "494130ef78d550defa25b959b57b780a5e5b452499cf96b0e9f09d4d1566d016",
+      "bytes": 150744
+    }
+  }
+}
