@@ -1,0 +1,29 @@
+{
+  "schema_version": "2.0",
+  "country": "COL",
+  "country_name": "Colombia",
+  "created_at_utc": "2026-08-08T22:28:57.168804+00:00",
+  "last_complete_month": "2026-07-01",
+  "first_month": "2025-01-01",
+  "rows": 133,
+  "series": 7,
+  "sources": [
+    "Cálculo CAME",
+    "XM"
+  ],
+  "notes": [
+    "Operación: Construir la primera base.",
+    "La asociación recurso–empresa se conserva por mes; el catálogo documenta los cambios observados y las empresas involucradas.",
+    "Variables seleccionadas: demand."
+  ],
+  "files": {
+    "Base_integrada_mensual.parquet": {
+      "sha256": "d4c2a3193665ce883fd5e34d8e802bc7f8f7f12f07ca21c87700ff7b449f170c",
+      "bytes": 10738
+    },
+    "Catalogo_Base_integrada.xlsx": {
+      "sha256": "4d1cae02ccc33439e40acdcc660fc46bacefd9b0a122721fd314b1cba1652856",
+      "bytes": 12051
+    }
+  }
+}
