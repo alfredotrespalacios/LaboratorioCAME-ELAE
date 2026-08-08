@@ -1,3 +1,3 @@
 """Laboratorio CAME: análisis académico de mercados eléctricos."""
 
-__version__ = "1.2.2"
+__version__ = "1.3.1"

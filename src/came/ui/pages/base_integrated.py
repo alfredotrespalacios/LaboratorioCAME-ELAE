@@ -100,7 +100,7 @@ def _published_view(data: pd.DataFrame, metadata: dict[str, object]) -> None:
     figure.for_each_annotation(
         lambda annotation: annotation.update(text=annotation.text.split("=")[-1])
     )
-    st.plotly_chart(figure, use_container_width=True)
+    st.plotly_chart(figure, width="stretch")
     selected_wide = to_wide(selected_long, "COL")
     indicators = {
         "Meses visibles": selected_wide["datetime"].nunique(),
@@ -110,11 +110,11 @@ def _published_view(data: pd.DataFrame, metadata: dict[str, object]) -> None:
     }
     show_indicators(indicators)
     tabs = st.tabs(["Tabla mensual", "Catálogo de series", "Formato largo"])
-    tabs[0].dataframe(selected_wide, use_container_width=True, hide_index=True)
+    tabs[0].dataframe(selected_wide, width="stretch", hide_index=True)
     tabs[1].dataframe(
-        options[options["series_id"].isin(selected)], use_container_width=True, hide_index=True
+        options[options["series_id"].isin(selected)], width="stretch", hide_index=True
     )
-    tabs[2].dataframe(selected_long, use_container_width=True, hide_index=True)
+    tabs[2].dataframe(selected_long, width="stretch", hide_index=True)
     st.session_state["integrated_data"] = to_wide(data, "COL")
     export_and_collect(
         module="6. Base integrada",
@@ -158,12 +158,12 @@ def _temporary_view(timeout: int) -> None:
     if result is None:
         st.info("Pulse el botón solo cuando necesite contrastar una consulta directa.")
         return
-    st.dataframe(result.status, use_container_width=True, hide_index=True)
+    st.dataframe(result.status, width="stretch", hide_index=True)
     show_warnings(result.warnings)
     if result.data.empty:
         st.error("Ninguna variable estuvo disponible para el periodo.")
         return
-    st.dataframe(result.data, use_container_width=True, hide_index=True)
+    st.dataframe(result.data, width="stretch", hide_index=True)
 
 
 def page_integrated(timeout: int) -> None:

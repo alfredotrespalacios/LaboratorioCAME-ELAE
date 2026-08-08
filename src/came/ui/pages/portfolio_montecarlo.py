@@ -151,9 +151,9 @@ def page_portfolio() -> None:
             "Correlación_latente": result.latent_correlation,
         }
     )
-    st.dataframe(result.summary, use_container_width=True, hide_index=True)
+    st.dataframe(result.summary, width="stretch", hide_index=True)
     st.subheader("Riesgo de cola inferior")
-    st.dataframe(result.performance, use_container_width=True, hide_index=True)
+    st.dataframe(result.performance, width="stretch", hide_index=True)
     melted = result.simulations[
         ["Ventas_sin_cobertura_millones_COP", "Ventas_con_cobertura_millones_COP"]
     ].melt(var_name="Escenario", value_name="Ventas")
@@ -166,7 +166,7 @@ def page_portfolio() -> None:
         nbins=50,
         title="Distribución de ventas mensuales",
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     st.plotly_chart(
         px.scatter(
             result.simulations.sample(min(5000, len(result.simulations)), random_state=1),
@@ -174,7 +174,7 @@ def page_portfolio() -> None:
             y="Precio_bolsa_COP_kWh",
             title="Dependencia generación–precio",
         ),
-        use_container_width=True,
+        width="stretch",
     )
     export_and_collect(
         module="13. Portafolio Monte Carlo",

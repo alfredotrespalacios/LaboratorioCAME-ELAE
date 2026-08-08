@@ -142,15 +142,15 @@ def _page_time_series_forecast(data: pd.DataFrame, numeric: list[str]) -> None:
         title=f"Validación cronológica · {state['model']}",
         unit=state["variable"],
     )
-    st.plotly_chart(validation_fig, use_container_width=True)
+    st.plotly_chart(validation_fig, width="stretch")
     forecast_fig = px.line(
         state["future"],
         x="datetime",
         y=["media", "inferior_80", "superior_80", "inferior_95", "superior_95"],
         title="Pronóstico fuera de muestra",
     )
-    st.plotly_chart(forecast_fig, use_container_width=True)
-    st.dataframe(state["future"], use_container_width=True, hide_index=True)
+    st.plotly_chart(forecast_fig, width="stretch")
+    st.dataframe(state["future"], width="stretch", hide_index=True)
     export_and_collect(
         module="11. Modelación y pronóstico",
         title=f"{state['model']} para {state['variable']}",
@@ -274,10 +274,10 @@ def page_modeling() -> None:
         title=f"Validación cronológica · {result.model_name}",
         unit=state["target"],
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     left, right = st.columns(2)
     left.subheader("Efectos o importancias")
-    left.dataframe(result.feature_effects, use_container_width=True, hide_index=True)
+    left.dataframe(result.feature_effects, width="stretch", hide_index=True)
     right.subheader("Residuales")
     right.plotly_chart(
         px.scatter(
@@ -286,7 +286,7 @@ def page_modeling() -> None:
             y="residual_estandarizado",
             title="Residual estandarizado",
         ),
-        use_container_width=True,
+        width="stretch",
     )
     if result.tree_rules:
         with st.expander("Reglas del árbol"):

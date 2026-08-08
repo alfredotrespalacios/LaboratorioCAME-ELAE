@@ -95,7 +95,7 @@ def page_offer_curve(timeout: int) -> None:
                 st.data_editor(
                     base,
                     num_rows="dynamic",
-                    use_container_width=True,
+                    width="stretch",
                     key=f"offer_editor_{index}",
                     column_config={
                         "Disponibilidad_GWh_día": st.column_config.NumberColumn(min_value=0.0),
@@ -136,7 +136,7 @@ def page_offer_curve(timeout: int) -> None:
             }
         )
         last_fig = offer_curve(result.supply, demand)
-        st.plotly_chart(last_fig, use_container_width=True)
+        st.plotly_chart(last_fig, width="stretch")
         st.dataframe(
             fits[
                 [
@@ -149,11 +149,11 @@ def page_offer_curve(timeout: int) -> None:
                     "warning",
                 ]
             ],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
         with st.expander("Sensibilidad a la demanda"):
-            st.dataframe(sensitivity, use_container_width=True, hide_index=True)
+            st.dataframe(sensitivity, width="stretch", hide_index=True)
         part = fits.assign(Escenario=name)
         combined.append(part)
     results_table = pd.concat(combined, ignore_index=True)

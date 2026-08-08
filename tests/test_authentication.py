@@ -32,4 +32,4 @@ def test_streamlit_login_accepts_unicode_password(monkeypatch) -> None:
     app.run()
 
     assert not app.exception
-    assert app.header[0].value == "1. Precio de bolsa"
+    assert app.header[0].value == "Introducción"

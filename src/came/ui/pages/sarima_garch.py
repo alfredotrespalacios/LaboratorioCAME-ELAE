@@ -42,7 +42,7 @@ def page_volatility() -> None:
             title="Serie seleccionada",
             unit=variable,
         ),
-        use_container_width=True,
+        width="stretch",
     )
     st.subheader("Órdenes")
     cols = st.columns(7)
@@ -117,10 +117,10 @@ def page_volatility() -> None:
     if "datetime" not in fitted:
         fitted.insert(0, "datetime", state["series"]["datetime"].iloc[-len(fitted) :].to_numpy())
     fig = observed_estimated(fitted, title="Ajuste SARIMA", unit=state["variable"])
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     forecast = result.combined_forecast if state["garch"] else sarima.forecast
     st.subheader("Pronóstico")
-    st.dataframe(forecast, use_container_width=True, hide_index=True)
+    st.dataframe(forecast, width="stretch", hide_index=True)
     st.subheader("Residuales originales y estandarizados")
     residuals = (
         result.standardized_residuals.reset_index()
@@ -133,7 +133,7 @@ def page_volatility() -> None:
             y=[column for column in ("residual", "residual_estandarizado") if column in residuals],
             title="Diagnóstico de residuales",
         ),
-        use_container_width=True,
+        width="stretch",
     )
     warnings = (
         result.warnings

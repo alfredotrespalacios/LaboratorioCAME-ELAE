@@ -1,4 +1,4 @@
-# Laboratorio CAME — especificación funcional v1.2
+# Laboratorio CAME — especificación funcional v1.3
 
 Fecha de consolidación: 8 de agosto de 2026.
 
@@ -12,6 +12,13 @@ Community Cloud. Debe consultar fuentes oficiales abiertas, explicar unidades y 
 permitir exportar resultados y soportar un uso pedagógico por estudiantes autorizados de ELAE.
 
 ## Navegación definitiva
+
+### Inicio
+
+La aplicación abre en una página no numerada llamada **Introducción**, ubicada antes de Colombia.
+Presenta el propósito del Laboratorio CAME, el mapa de módulos, la ruta recomendada, el alcance
+académico y las condiciones de uso. Expresa que la aplicación es propiedad de ELAE, que el acceso
+es personal y que su uso está autorizado únicamente a los participantes durante el curso.
 
 ### Colombia
 
@@ -52,7 +59,7 @@ conciliación mensual de los tres niveles.
 
 13. Portafolio de generación y simulación Monte Carlo.
 
-### Actividades académicas
+### Casos de estudio
 
 14–18. Cinco casos de estudio independientes, inicialmente marcados como “Próximamente
 disponible”.
@@ -69,6 +76,8 @@ la base por defecto. No reemplaza el módulo 6: **Base integrada** se utiliza pa
 comparar, graficar y exportar las series mensuales; **Mantenimiento de datos** se utiliza
 excepcionalmente para preparar los archivos que después se publican juntos en carpetas separadas
 para Colombia, España y Chile bajo `datos_por_defecto/`.
+El empaquetado final se realiza por etapas en disco y debe ser recuperable sin `session_state`.
+La aplicación no anuncia que terminó hasta verificar el ZIP y presentar su botón de descarga.
 
 ## Reglas no negociables
 
@@ -90,6 +99,8 @@ para Colombia, España y Chile bajo `datos_por_defecto/`.
   reintentos HTTP, y conservan los puntos de avance para la siguiente ejecución.
 - La contraseña se configura únicamente mediante secretos de despliegue.
 - El uso es académico y no sustituye análisis profesional, regulatorio u operativo.
+- La aplicación, su código y sus materiales académicos son propiedad de ELAE; no pueden copiarse,
+  redistribuirse, publicarse ni comercializarse sin autorización escrita.
 
 ## Valores predeterminados aprobados
 

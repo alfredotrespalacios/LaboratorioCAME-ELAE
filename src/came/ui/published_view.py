@@ -71,7 +71,7 @@ def render_published_country(country: str, *, key: str) -> bool:
     figure.for_each_annotation(
         lambda annotation: annotation.update(text=annotation.text.split("=")[-1])
     )
-    st.plotly_chart(figure, use_container_width=True)
+    st.plotly_chart(figure, width="stretch")
     wide = to_wide(long, country)
     indicators = {
         "Meses": wide["datetime"].nunique(),
@@ -80,9 +80,9 @@ def render_published_country(country: str, *, key: str) -> bool:
     }
     show_indicators(indicators)
     tabs = st.tabs(["Tabla mensual", "Catálogo"])
-    tabs[0].dataframe(wide, use_container_width=True, hide_index=True)
+    tabs[0].dataframe(wide, width="stretch", hide_index=True)
     tabs[1].dataframe(
-        options[options["series_id"].isin(selected)], use_container_width=True, hide_index=True
+        options[options["series_id"].isin(selected)], width="stretch", hide_index=True
     )
     export_and_collect(
         module=f"Mercado de {spec.label}",

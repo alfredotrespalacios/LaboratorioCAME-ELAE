@@ -2,9 +2,10 @@
 
 ## Estado actual
 
-- Versión 1.2.2 implementada y validada localmente.
+- Versión 1.3.1 implementada y validada localmente.
+- La Introducción es la primera página y explica módulos, ruta de uso, propiedad y alcance académico.
 - Los 19 módulos están incorporados en la navegación definitiva.
-- Las cinco actividades permanecen como marcadores aprobados, sin contenido ficticio.
+- Los cinco casos de estudio permanecen como marcadores aprobados, sin contenido ficticio.
 - No existen credenciales dentro del repositorio.
 - Mantenimiento construye paquetes mensuales separados para Colombia, España y Chile.
 - Precio y Demanda mensual leen primero el Parquet publicado; XM queda como consulta opcional.
@@ -23,18 +24,23 @@
 
 ## Verificaciones cerradas
 
-- Lint, 52 pruebas locales y smoke de Streamlit aprobados el 8 de agosto de 2026.
+- Lint, 57 pruebas locales y smoke de Streamlit aprobados el 8 de agosto de 2026.
 - Los tres contratos vivos fueron aprobados en la validación v1.1.0; la v1.2.0 no los repitió en
   este entorno restringido.
 - Balance y curva contrastados con los Excel recibidos.
 - El empaquetado mensual, el ZIP, la exclusión del mes incompleto y el último valor mensual de
   volumen útil tienen pruebas locales.
-- El ZIP validado se guarda en disco temporal antes de mostrar los botones y puede recuperarse
-  después de un `rerun` de Streamlit sin repetir la construcción.
+- El ZIP se construye por etapas en disco, fuera del repositorio observado por Streamlit. Puede
+  recuperarse después de perder `session_state` y una sesión nueva lo vuelve a mostrar.
+- Una prueba de interfaz ejecuta **Construir la primera base**, comprueba el botón del ZIP y crea
+  una segunda sesión que recupera la misma descarga. La versión anterior solo probaba un paquete
+  preparado de antemano y por eso no cubría el cierre real reportado.
 - Las carpetas temporales de avance y del paquete se recrean antes de cada escritura. Limpiar
   avances o perder una carpeta temporal durante una ejecución ya no bloquea el siguiente bloque.
 - Rendimientos simple/logarítmico, exclusión del último día incompleto, reintentos de bloques y
   guardado manual al informe tienen pruebas locales.
+- La prueba en vivo de XM respondió 502 durante el cierre de v1.3.0; REData y OMIE sí respondieron.
+  El chequeo local y la navegación no dependen de esa disponibilidad externa.
 
 ## Limitación documentada
 

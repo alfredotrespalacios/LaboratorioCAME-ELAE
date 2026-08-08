@@ -11,7 +11,10 @@ from came.data.maintenance import COLOMBIA_TASKS, CheckpointStore, ColombiaMonth
 from came.data.monthly_store import (
     LONG_COLUMNS,
     _write_bytes_atomically,
+    allocate_ready_package_directory,
     create_monthly_package,
+    create_stored_monthly_package,
+    discover_ready_monthly_package,
     load_stored_monthly_package,
     merge_monthly_data,
     store_monthly_package,
@@ -70,6 +73,48 @@ def test_monthly_package_is_recoverable_from_disk_after_a_rerun(tmp_path) -> Non
     assert recovered.catalog_path.read_bytes() == package.catalog_bytes
     assert recovered.metadata_path.read_bytes() == package.metadata_bytes
     assert recovered.validation.ok
+
+
+def test_streamed_package_is_discovered_after_session_state_is_lost(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("CAME_RUNTIME_STORAGE", str(tmp_path / "runtime"))
+    data = pd.DataFrame([monthly_row("2024-01-01", 1.0), monthly_row("2024-02-01", 2.0)])
+    output = allocate_ready_package_directory("COL", "primera-base")
+
+    stored = create_stored_monthly_package(
+        data,
+        "COL",
+        output,
+        reference="2024-03-15",
+    )
+    recovered = discover_ready_monthly_package("COL")
+
+    assert recovered is not None
+    assert recovered.directory == stored.directory
+    assert recovered.zip_path.is_file()
+    assert recovered.validation.ok
+    assert not any(path.name.startswith(".") for path in output.parent.iterdir())
+
+
+def test_discovery_recovers_a_package_written_by_version_1_3_0(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("CAME_RUNTIME_STORAGE", str(tmp_path / "new-runtime"))
+    data = pd.DataFrame([monthly_row("2024-01-01", 1.0)])
+    package = create_monthly_package(data, "COL", reference="2024-02-15")
+    monkeypatch.setattr(
+        "came.data.monthly_store.tempfile.gettempdir",
+        lambda: str(tmp_path / "legacy-tmp"),
+    )
+    legacy = tmp_path / "legacy-tmp" / "laboratorio_came" / "old-build" / "package"
+    stored = store_monthly_package(package, legacy)
+
+    recovered = discover_ready_monthly_package("COL")
+
+    assert recovered is not None
+    assert recovered.directory == stored.directory
+    assert recovered.zip_path.read_bytes() == package.zip_bytes
 
 
 def test_checkpoint_store_recreates_directory_after_clear(tmp_path) -> None:

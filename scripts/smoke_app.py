@@ -15,5 +15,6 @@ if app.exception:
     raise SystemExit(f"Smoke de Streamlit falló:\n{details}")
 if not app.title or app.title[0].value != "Laboratorio CAME":
     raise SystemExit("La aplicación inició, pero no presentó el título esperado.")
-print("Smoke de Streamlit: OK · módulo 1 navegable sin ejecutar consultas externas.")
-
+if not app.header or app.header[0].value != "Introducción":
+    raise SystemExit("La aplicación inició, pero no presentó la introducción esperada.")
+print("Smoke de Streamlit: OK · introducción visible sin ejecutar consultas externas.")

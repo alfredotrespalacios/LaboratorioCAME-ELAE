@@ -68,7 +68,7 @@ def page_generation_resource(timeout: int) -> None:
         title=f"Generación por {level.lower()}",
         unit="GWh/mes",
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     st.info(
         "El Excel conserva el histórico mensual de **todos los recursos consultados**, aunque "
         "la gráfica muestre únicamente los elementos seleccionados. Para solicitar la máxima "

@@ -1,4 +1,4 @@
-"""Entrada única de Streamlit para los 19 módulos y su mantenimiento técnico."""
+"""Entrada única de Streamlit para la introducción, 19 módulos y mantenimiento."""
 
 from __future__ import annotations
 
@@ -19,8 +19,8 @@ from came.ui.components import (  # noqa: E402
     authentication_gate,
     settings_from_streamlit,
 )
-from came.ui.pages.activities import page_activity  # noqa: E402
 from came.ui.pages.base_integrated import page_integrated  # noqa: E402
+from came.ui.pages.case_studies import page_case_study  # noqa: E402
 from came.ui.pages.chile import page_chile  # noqa: E402
 from came.ui.pages.data_maintenance import page_data_maintenance  # noqa: E402
 from came.ui.pages.demand_national import page_demand  # noqa: E402
@@ -28,6 +28,7 @@ from came.ui.pages.energy_balance import page_balance  # noqa: E402
 from came.ui.pages.executive_report import page_report  # noqa: E402
 from came.ui.pages.generation_resource import page_generation_resource  # noqa: E402
 from came.ui.pages.generation_technology import page_generation_technology  # noqa: E402
+from came.ui.pages.introduction import page_introduction  # noqa: E402
 from came.ui.pages.modeling_forecast import page_modeling  # noqa: E402
 from came.ui.pages.offer_curve import page_offer_curve  # noqa: E402
 from came.ui.pages.portfolio_montecarlo import page_portfolio  # noqa: E402
@@ -54,6 +55,14 @@ st.sidebar.caption(
 
 navigation = st.navigation(
     {
+        "Inicio": [
+            st.Page(
+                page_introduction,
+                title="Introducción",
+                url_path="introduccion",
+                default=True,
+            ),
+        ],
         "Colombia": [
             st.Page(
                 partial(page_spot, settings.request_timeout_seconds),
@@ -120,12 +129,32 @@ navigation = st.navigation(
         "Estructuración de portafolios": [
             st.Page(page_portfolio, title="13. Monte Carlo", url_path="portafolio"),
         ],
-        "Actividades académicas": [
-            st.Page(partial(page_activity, 14), title="14. Actividad 1", url_path="actividad-1"),
-            st.Page(partial(page_activity, 15), title="15. Actividad 2", url_path="actividad-2"),
-            st.Page(partial(page_activity, 16), title="16. Actividad 3", url_path="actividad-3"),
-            st.Page(partial(page_activity, 17), title="17. Actividad 4", url_path="actividad-4"),
-            st.Page(partial(page_activity, 18), title="18. Actividad 5", url_path="actividad-5"),
+        "Casos de estudio": [
+            st.Page(
+                partial(page_case_study, 14),
+                title="14. Caso de estudio 1",
+                url_path="caso-estudio-1",
+            ),
+            st.Page(
+                partial(page_case_study, 15),
+                title="15. Caso de estudio 2",
+                url_path="caso-estudio-2",
+            ),
+            st.Page(
+                partial(page_case_study, 16),
+                title="16. Caso de estudio 3",
+                url_path="caso-estudio-3",
+            ),
+            st.Page(
+                partial(page_case_study, 17),
+                title="17. Caso de estudio 4",
+                url_path="caso-estudio-4",
+            ),
+            st.Page(
+                partial(page_case_study, 18),
+                title="18. Caso de estudio 5",
+                url_path="caso-estudio-5",
+            ),
         ],
         "Informe": [
             st.Page(page_report, title="19. Informe ejecutivo", url_path="informe"),

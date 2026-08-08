@@ -1,19 +1,25 @@
-# Informe de validación v1.2.2
+# Informe de validación v1.3.1
 
 Fecha: 8 de agosto de 2026.
 
 ## Resultado
 
 - Lint: `ruff check .` sin hallazgos.
-- Pruebas locales: 52 aprobadas.
-- Contratos vivos: no ejecutados en este entorno restringido; los 3 contratos fueron aprobados en
-  la validación v1.1.0.
+- Pruebas locales: 57 aprobadas.
+- Contratos vivos: REData y OMIE aprobados; XM respondió 502 después de agotar reintentos. Los tres
+  contratos habían sido aprobados en la validación v1.1.0.
 - Smoke de Streamlit: página inicial cargada sin excepciones en modo local.
+- Introducción: primera página del menú, anterior a Colombia, con propiedad, alcance y guía de uso.
+- Casos de estudio: módulos 14–18 renombrados en navegación y páginas.
 - Compilación: todos los módulos Python compilados.
 - Secretos: no se incorpora `secrets.toml`, `.env` ni contraseña real.
 - Empaquetado mensual: Parquet, Excel, JSON y ZIP aprobados con datos sintéticos trazables.
-- Persistencia de descarga: ZIP y archivos individuales recuperados desde disco temporal después
-  de volver a ejecutar la interfaz de Streamlit.
+- Persistencia de descarga: el flujo completo **Construir la primera base** termina con ZIP y una
+  sesión nueva vuelve a mostrar su descarga sin depender de `session_state`.
+- Compatibilidad: se detecta un paquete completo guardado por la versión 1.3.0, cuando todavía
+  existe en la instancia, antes de obligar a repetir la descarga histórica.
+- Memoria: Parquet, Excel, JSON y ZIP se escriben por etapas en disco; la pantalla carga de forma
+  predeterminada únicamente el ZIP y deja los archivos individuales bajo petición.
 - Navegación: cada página visible se importa desde un archivo Python independiente.
 - Precio y Demanda: apertura desde el Parquet mensual, con consulta XM opcional.
 - Calidad diaria: un día incompleto de demanda se excluye y se informa el último día completo.
@@ -23,6 +29,8 @@ Fecha: 8 de agosto de 2026.
 - Recuperación de directorios: el almacén de avances y la escritura atómica del paquete recrean
   sus carpetas si fueron eliminadas antes de guardar un bloque o archivo, y repiten una vez la
   escritura si la carpeta desaparece exactamente durante la operación.
+- Compatibilidad Streamlit 1.61: se sustituyó `use_container_width` por `width`, sin advertencias
+  de la API durante el smoke local.
 
 ## Contraste con los Excel entregados
 

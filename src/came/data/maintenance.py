@@ -21,7 +21,12 @@ from came.data.colombia import (
     resource_catalog,
     unserved_demand,
 )
-from came.data.monthly_store import LONG_COLUMNS, last_complete_month, merge_monthly_data
+from came.data.monthly_store import (
+    LONG_COLUMNS,
+    last_complete_month,
+    merge_monthly_data,
+    runtime_storage_root,
+)
 from came.data.providers.chile import ChileProvider
 from came.data.providers.macro import MacroProvider
 from came.data.providers.omie import OmieProvider
@@ -136,11 +141,18 @@ COLOMBIA_TASKS = (
 
 
 class CheckpointStore:
-    """Conserva bloques mensuales ya aprobados en el disco temporal de la instancia."""
+    """Conserva bloques mensuales aprobados fuera del repositorio observado por Streamlit."""
 
     def __init__(self, build_id: str) -> None:
         safe_id = re.sub(r"[^a-zA-Z0-9_.-]+", "_", build_id).strip("._")
-        self.directory = Path(tempfile.gettempdir()) / "laboratorio_came" / safe_id
+        self.directory = runtime_storage_root(create=True) / "checkpoints" / safe_id
+        legacy = Path(tempfile.gettempdir()) / "laboratorio_came" / safe_id
+        if legacy.exists() and not self.directory.exists():
+            try:
+                shutil.copytree(legacy, self.directory)
+            except OSError:
+                # La nueva construcción puede continuar aunque el temporal anterior ya no sea legible.
+                pass
         self._ensure_directory()
 
     def _ensure_directory(self) -> None:

@@ -1,4 +1,4 @@
-"""Módulos 14–19: actividades académicas e informe ejecutivo."""
+"""Módulo 19: informe ejecutivo a partir de resultados elegidos."""
 
 from __future__ import annotations
 
@@ -7,14 +7,6 @@ import streamlit as st
 
 from came.report import build_executive_prompt
 from came.ui.components import page_header
-
-ACTIVITY_TITLES = {
-    14: "Actividad académica 1",
-    15: "Actividad académica 2",
-    16: "Actividad académica 3",
-    17: "Actividad académica 4",
-    18: "Actividad académica 5",
-}
 
 
 def page_report() -> None:
@@ -46,7 +38,7 @@ def page_report() -> None:
         edited = st.data_editor(
             overview,
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             key="report_selector",
             disabled=["Módulo", "Título", "Periodo", "Fuente", "ID"],
         )
@@ -92,7 +84,7 @@ def page_report() -> None:
         file_name="prompt_informe_ejecutivo_came.txt",
         mime="text/plain",
         type="primary",
-        use_container_width=True,
+        width="stretch",
     )
     with st.expander("Vista previa del prompt"):
         st.code(prompt, language="markdown")

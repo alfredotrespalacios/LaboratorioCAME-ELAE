@@ -54,7 +54,7 @@ def _render_price_analysis(
     indicators = summary_indicators(data)
     show_indicators(indicators)
     price_figure = line(data, "value", title="Precio de bolsa", unit="COP/kWh")
-    st.plotly_chart(price_figure, use_container_width=True, key=f"{key}_price")
+    st.plotly_chart(price_figure, width="stretch", key=f"{key}_price")
 
     left, right = st.columns(2)
     annual = (
@@ -64,12 +64,12 @@ def _render_price_analysis(
     )
     left.plotly_chart(
         bars(annual, "Año", "value", color=None, title="Promedio anual", unit="COP/kWh"),
-        use_container_width=True,
+        width="stretch",
         key=f"{key}_annual",
     )
     right.plotly_chart(
         histogram(data, "value", title="Distribución", unit="COP/kWh"),
-        use_container_width=True,
+        width="stretch",
         key=f"{key}_distribution",
     )
 
@@ -95,7 +95,7 @@ def _render_price_analysis(
             title="Rendimiento entre observaciones consecutivas",
             unit="%",
         )
-        st.plotly_chart(returns_figure, use_container_width=True, key=f"{key}_returns")
+        st.plotly_chart(returns_figure, width="stretch", key=f"{key}_returns")
         st.caption(
             "Variación porcentual = (Pₜ/Pₜ₋₁ − 1) × 100. "
             "Rendimiento logarítmico = ln(Pₜ/Pₜ₋₁) × 100."
@@ -139,7 +139,7 @@ def _render_intraday(start: object, end: object, timeout: int) -> None:
             figure = px.violin(hourly, x="Hora", y="value", box=True, title="Precio por hora")
             st.plotly_chart(
                 style_figure(figure, y_title="COP/kWh"),
-                use_container_width=True,
+                width="stretch",
                 key="spot_hourly_figure",
             )
 

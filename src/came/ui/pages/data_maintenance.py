@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import tempfile
 from datetime import date
-from pathlib import Path
 
 import pandas as pd
 import streamlit as st
@@ -19,14 +17,15 @@ from came.data.maintenance import (
 from came.data.monthly_store import (
     LONG_COLUMNS,
     StoredMonthlyPackage,
-    create_monthly_package,
+    allocate_ready_package_directory,
+    create_stored_monthly_package,
+    discover_ready_monthly_package,
     get_package_spec,
     last_complete_month,
     load_default_metadata,
     load_default_monthly,
     load_stored_monthly_package,
     merge_monthly_data,
-    store_monthly_package,
 )
 
 OPERATION_UPDATE = "Agregar meses faltantes"
@@ -92,6 +91,7 @@ def _result_for_session(
         "errors": list(result.errors),
         "package_directory": str(package.directory) if package else None,
         "country": result.country,
+        "recovered": False,
     }
 
 
@@ -100,7 +100,29 @@ def _package_from_state(state: dict[str, object]) -> StoredMonthlyPackage | None
     country = state.get("country")
     if not directory or not country:
         return None
-    return load_stored_monthly_package(str(directory), str(country))
+    package = load_stored_monthly_package(str(directory), str(country))
+    return package or discover_ready_monthly_package(str(country))
+
+
+def _state_or_latest(session_key: str, country: str) -> dict[str, object] | None:
+    """Recupera la última descarga aunque Streamlit haya creado una sesión nueva."""
+
+    state = st.session_state.get(session_key)
+    if isinstance(state, dict):
+        return state
+    package = discover_ready_monthly_package(country)
+    if package is None:
+        return None
+    state = {
+        "status": pd.DataFrame(),
+        "warnings": [],
+        "errors": [],
+        "package_directory": str(package.directory),
+        "country": country,
+        "recovered": True,
+    }
+    st.session_state[session_key] = state
+    return state
 
 
 def _download_file(
@@ -120,6 +142,7 @@ def _download_file(
             mime=mime,
             type="primary" if primary else "secondary",
             key=key,
+            width="stretch",
         )
 
 
@@ -129,7 +152,7 @@ def _show_result(state: dict[str, object], key: str) -> None:
     warnings = list(state.get("warnings", []))
     errors = list(state.get("errors", []))
     if isinstance(status, pd.DataFrame) and not status.empty:
-        st.dataframe(status, use_container_width=True, hide_index=True)
+        st.dataframe(status, width="stretch", hide_index=True)
     if warnings:
         for warning in warnings:
             st.warning(warning)
@@ -159,7 +182,12 @@ def _show_result(state: dict[str, object], key: str) -> None:
         )
         return
     st.success("Paquete listo. El ZIP quedó guardado y ya puede descargarlo.")
-    st.dataframe(package.validation.as_frame(), use_container_width=True, hide_index=True)
+    if state.get("recovered"):
+        st.caption(
+            "La descarga se recuperó automáticamente de la ejecución más reciente; "
+            "no depende de la memoria de esta sesión."
+        )
+    st.dataframe(package.validation.as_frame(), width="stretch", hide_index=True)
     spec = package.spec
     metrics = st.columns(3)
     metrics[0].metric("Tamaño del ZIP", f"{package.zip_path.stat().st_size / 1_048_576:.1f} MB")
@@ -178,31 +206,60 @@ def _show_result(state: dict[str, object], key: str) -> None:
         key=f"{key}_zip",
         primary=True,
     )
-    columns = st.columns(3)
-    with columns[0]:
-        _download_file(
-            spec.parquet_name,
-            package.parquet_path,
-            file_name=spec.parquet_name,
-            mime="application/octet-stream",
-            key=f"{key}_parquet",
+    if st.checkbox("Necesito descargar también un archivo individual", key=f"{key}_individual"):
+        files = {
+            spec.parquet_name: (package.parquet_path, "application/octet-stream"),
+            spec.catalog_name: (
+                package.catalog_path,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
+            spec.metadata_name: (package.metadata_path, "application/json"),
+        }
+        selected = st.selectbox(
+            "Archivo individual",
+            list(files),
+            key=f"{key}_individual_file",
         )
-    with columns[1]:
+        selected_path, selected_mime = files[selected]
         _download_file(
-            spec.catalog_name,
-            package.catalog_path,
-            file_name=spec.catalog_name,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key=f"{key}_catalog",
+            f"Descargar {selected}",
+            selected_path,
+            file_name=selected,
+            mime=selected_mime,
+            key=f"{key}_individual_download",
         )
-    with columns[2]:
-        _download_file(
-            spec.metadata_name,
-            package.metadata_path,
-            file_name=spec.metadata_name,
-            mime="application/json",
-            key=f"{key}_metadata",
+
+
+def _create_download_package(
+    result: BuildResult,
+    *,
+    country: str,
+    build_id: str,
+    additional_sheets: dict[str, pd.DataFrame],
+    build_notes: list[str],
+) -> StoredMonthlyPackage | None:
+    """Empaqueta en disco y muestra cada fase que ocurre después de descargar las fuentes."""
+
+    if not result.ok:
+        return None
+    phase = st.empty()
+    try:
+        output = allocate_ready_package_directory(country, build_id)
+        package = create_stored_monthly_package(
+            result.data,
+            country,
+            output,
+            additional_sheets=additional_sheets,
+            build_notes=build_notes,
+            progress=phase.info,
         )
+        result.data = pd.DataFrame(columns=LONG_COLUMNS)
+        phase.success("Paquete terminado y verificado. Preparando el botón de descarga…")
+        return package
+    except Exception as exc:
+        result.errors.append(f"Empaquetado final: {exc}")
+        phase.error("La consulta terminó, pero el empaquetado final falló.")
+        return None
 
 
 def _period_controls(
@@ -314,26 +371,18 @@ def _colombia_section(timeout: int) -> None:
                 include_macro=True,
                 callback=_progress_callback(progress),
             )
-        package = None
-        if result.ok:
-            try:
-                monthly_package = create_monthly_package(
-                    result.data,
-                    "COL",
-                    additional_sheets=_additional_sheets(result),
-                    build_notes=[
-                        f"Operación: {operation}.",
-                        "La asociación histórica recurso–empresa corresponde al catálogo XM usado en la consulta.",
-                    ],
-                )
-                package = store_monthly_package(
-                    monthly_package,
-                    builder.checkpoints.directory / "package",
-                )
-            except Exception as exc:
-                result.errors.append(str(exc))
+        package = _create_download_package(
+            result,
+            country="COL",
+            build_id=build_id,
+            additional_sheets=_additional_sheets(result),
+            build_notes=[
+                f"Operación: {operation}.",
+                "La asociación histórica recurso–empresa corresponde al catálogo XM usado en la consulta.",
+            ],
+        )
         st.session_state["maintenance_col_result"] = _result_for_session(result, package)
-    state = st.session_state.get("maintenance_col_result")
+    state = _state_or_latest("maintenance_col_result", "COL")
     if isinstance(state, dict):
         _show_result(state, "maintenance_col")
 
@@ -377,23 +426,15 @@ def _spain_section(timeout: int) -> None:
                 upper = pd.Timestamp(replace_end, tz="UTC") + pd.offsets.MonthEnd()
                 base = base[~dates.between(lower, upper)]
             result.data = merge_monthly_data(base, result.data)
-        package = None
-        if result.ok:
-            try:
-                monthly_package = create_monthly_package(
-                    result.data,
-                    "ESP",
-                    additional_sheets=_additional_sheets(result),
-                    build_notes=[f"Operación: {operation}."],
-                )
-                package = store_monthly_package(
-                    monthly_package,
-                    builder.checkpoints.directory / "package",
-                )
-            except Exception as exc:
-                result.errors.append(str(exc))
+        package = _create_download_package(
+            result,
+            country="ESP",
+            build_id=build_id,
+            additional_sheets=_additional_sheets(result),
+            build_notes=[f"Operación: {operation}."],
+        )
         st.session_state["maintenance_esp_result"] = _result_for_session(result, package)
-    state = st.session_state.get("maintenance_esp_result")
+    state = _state_or_latest("maintenance_esp_result", "ESP")
     if isinstance(state, dict):
         _show_result(state, "maintenance_esp")
 
@@ -447,28 +488,17 @@ def _chile_section(timeout: int) -> None:
             last = pd.to_datetime(result.data["datetime"], utc=True).max() + pd.offsets.MonthEnd()
             dates = pd.to_datetime(existing["datetime"], utc=True)
             result.data = merge_monthly_data(existing[~dates.between(first, last)], result.data)
-        package = None
-        if result.ok:
-            try:
-                monthly_package = create_monthly_package(
-                    result.data,
-                    "CHL",
-                    additional_sheets=_additional_sheets(result),
-                    build_notes=[
-                        "Actualización construida desde exportaciones oficiales cargadas por el usuario."
-                    ],
-                )
-                output = (
-                    Path(tempfile.gettempdir())
-                    / "laboratorio_came"
-                    / "CHL_archivos"
-                    / "package"
-                )
-                package = store_monthly_package(monthly_package, output)
-            except Exception as exc:
-                result.errors.append(str(exc))
+        package = _create_download_package(
+            result,
+            country="CHL",
+            build_id="CHL_archivos",
+            additional_sheets=_additional_sheets(result),
+            build_notes=[
+                "Actualización construida desde exportaciones oficiales cargadas por el usuario."
+            ],
+        )
         st.session_state["maintenance_chl_result"] = _result_for_session(result, package)
-    state = st.session_state.get("maintenance_chl_result")
+    state = _state_or_latest("maintenance_chl_result", "CHL")
     if isinstance(state, dict):
         _show_result(state, "maintenance_chl")
 
@@ -501,7 +531,7 @@ def _publication_guide() -> None:
                 "Actualización": spec.metadata_name,
             }
         )
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
 
 def page_data_maintenance(timeout: int = 45) -> None:
@@ -514,7 +544,8 @@ def page_data_maintenance(timeout: int = 45) -> None:
     )
     st.warning(
         "**No usar durante la operación normal.** Una construcción histórica consulta muchas "
-        "observaciones y puede tardar. Mantenga abierta la pestaña hasta obtener el ZIP.",
+        "observaciones y puede tardar. Mantenga abierta la pestaña y no actualice archivos en "
+        "GitHub hasta que aparezca **Descargar ZIP listo para GitHub**.",
         icon="⚠️",
     )
     st.info(

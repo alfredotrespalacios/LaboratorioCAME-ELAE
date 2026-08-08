@@ -98,13 +98,13 @@ def _render_demand_analysis(
         title="Demanda nacional promedio diaria",
         unit="GWh-día",
     )
-    st.plotly_chart(demand_figure, use_container_width=True, key=f"{key}_demand")
+    st.plotly_chart(demand_figure, width="stretch", key=f"{key}_demand")
 
     additional: dict[str, pd.DataFrame] = {}
     if unserved is not None and not unserved.empty:
         st.plotly_chart(
             line(unserved, "GWh_día", title="Demanda no atendida", unit="GWh-día"),
-            use_container_width=True,
+            width="stretch",
             key=f"{key}_unserved",
         )
         show_warnings(warnings)
@@ -112,7 +112,7 @@ def _render_demand_analysis(
         if audit is not None and not audit.empty:
             additional["Auditoría jerárquica"] = audit
             with st.expander("Auditoría área/subárea"):
-                st.dataframe(audit, use_container_width=True, hide_index=True)
+                st.dataframe(audit, width="stretch", hide_index=True)
 
     first = pd.to_datetime(demand["datetime"], utc=True).min().date()
     last = pd.to_datetime(demand["datetime"], utc=True).max().date()

@@ -115,10 +115,10 @@ def page_chile(
     }
     show_indicators(indicators)
     fig = line(data, "price_usd_mwh", title="Costo marginal nacional ponderado", unit="USD/MWh")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     st.plotly_chart(
         line(data, "demand_mwh", title="Demanda agregada de las barras coincidentes", unit="MWh"),
-        use_container_width=True,
+        width="stretch",
     )
     export_and_collect(
         module="10. Chile",

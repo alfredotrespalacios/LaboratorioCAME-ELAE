@@ -283,7 +283,7 @@ def export_and_collect(
             file_name=f"{key}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             key=f"{key}_xlsx",
-            use_container_width=True,
+            width="stretch",
         )
     else:
         col_excel.warning(f"Excel no disponible: {excel_error}")
@@ -294,7 +294,7 @@ def export_and_collect(
             file_name=f"{key}.pdf",
             mime="application/pdf",
             key=f"{key}_pdf",
-            use_container_width=True,
+            width="stretch",
         )
     else:
         col_pdf.warning(f"PDF no disponible: {pdf_error}")
@@ -304,7 +304,7 @@ def export_and_collect(
         file_name=f"{key}.json",
         mime="application/json",
         key=f"{key}_json",
-        use_container_width=True,
+        width="stretch",
     )
     packages = st.session_state.get("report_packages", [])
     already_saved = any(item.get("package_id") == key for item in packages)
@@ -313,7 +313,7 @@ def export_and_collect(
         if already_saved
         else "Guardar resultado para el informe ejecutivo"
     )
-    if st.button(save_label, key=f"{key}_save_report", use_container_width=True):
+    if st.button(save_label, key=f"{key}_save_report", width="stretch"):
         packages = st.session_state.setdefault("report_packages", [])
         position = next(
             (index for index, item in enumerate(packages) if item.get("package_id") == key),

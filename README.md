@@ -4,19 +4,20 @@ Aplicación académica de ELAE para consultar, analizar y modelar mercados eléc
 construida con Streamlit y Plotly, usa fuentes oficiales abiertas y mantiene visibles las unidades,
 supuestos, coberturas y limitaciones de cada resultado.
 
-La entrega contiene los 19 módulos acordados, exportaciones Excel/PDF, canasta manual para informe
-ejecutivo, acceso por contraseña, pruebas numéricas contra los Excel pedagógicos y un sistema
-mensual versionable que no requiere una base de datos externa.
+La entrega contiene una introducción de uso, los 19 módulos acordados, exportaciones Excel/PDF,
+canasta manual para informe ejecutivo, acceso por contraseña, pruebas numéricas contra los Excel
+pedagógicos y un sistema mensual versionable que no requiere una base de datos externa.
 
 ## Módulos
 
 | Grupo | Módulos |
 |---|---|
+| Inicio | Introducción, mapa de módulos, ruta recomendada y condiciones de uso |
 | Colombia | 1. Precio de bolsa · 2. Demanda nacional · 3. Generación por tecnología · 4. Generación por recurso/empresa · 5. Explorador XM · 6. Base integrada · 7. Balance energético · 8. Curva de oferta |
 | Otros mercados | 9. España (REData y OMIE) · 10. Chile (archivos oficiales validados) |
 | Análisis y modelación | 11. Supervisados, ingenuo, ARIMA y SARIMA · 12. SARIMA–GARCH |
 | Portafolios | 13. Monte Carlo de generación, precio y contratación, con VaR/CVaR |
-| Actividades | 14–18. Espacios “Próximamente disponible”, sin contenido inventado |
+| Casos de estudio | 14–18. Espacios “Próximamente disponible”, sin contenido inventado |
 | Informe | 19. Canasta y generador de prompt ejecutivo TXT |
 
 Al final del menú se incluye **Mantenimiento de datos**, una página técnica no numerada. Allí se
@@ -24,13 +25,14 @@ puede construir la primera base, agregar meses, recalcular un periodo, reanudar 
 validar el resultado y descargar el ZIP listo para GitHub. No es un módulo de análisis y no se
 utiliza durante la operación normal.
 
-Al aprobarse la validación, Mantenimiento escribe primero el ZIP y sus tres archivos en el disco
-temporal de la instancia y después muestra las descargas. El botón permanece disponible durante
-los `rerun` y la navegación de esa sesión. Si alguna fuente termina con error, la pantalla indica
-explícitamente que no creó el ZIP y permite reanudar los bloques pendientes.
-Antes de guardar cada bloque y cada archivo final, la aplicación verifica y recrea su carpeta
-temporal. Esto permite continuar incluso después de limpiar avances o de que la instancia elimine
-una carpeta vacía.
+Al terminar las fuentes, Mantenimiento muestra cinco fases adicionales: validación, Parquet,
+catálogo Excel, compresión y publicación. Los archivos se escriben directamente en disco para no
+duplicar toda la historia en memoria. El ZIP se declara listo únicamente después de verificar su
+manifiesto; la pantalla vuelve a encontrarlo aunque se pierdan la sesión o un `rerun` completo.
+También reconoce paquetes creados por la versión 1.3.0 mientras continúen en la misma instancia.
+La descarga principal carga solo el ZIP; los archivos individuales se habilitan bajo petición para
+reducir memoria. Si una fuente falla, la pantalla indica explícitamente que no creó el ZIP y permite
+reanudar únicamente los bloques pendientes.
 
 ## Bases mensuales publicadas
 
@@ -131,6 +133,7 @@ docs/                        especificación, despliegue y validación
 
 ## Uso y propiedad
 
-© 2026 ELAE. Uso académico para estudiantes autorizados. Consulte [NOTICE.md](NOTICE.md). Este
-repositorio no incorpora una licencia de código abierto; publicar el código no concede por sí mismo
-derechos de reutilización.
+© 2026 ELAE. Uso académico únicamente para participantes autorizados durante el curso. El acceso
+es personal y no puede compartirse. Consulte [NOTICE.md](NOTICE.md). Este repositorio no incorpora
+una licencia de código abierto; publicar el código no concede por sí mismo derechos de copia,
+redistribución, publicación o comercialización.

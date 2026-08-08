@@ -42,7 +42,8 @@ Solo `.streamlit/secrets.toml.example` debe estar versionado. El archivo real
 
 1. Abra `share.streamlit.io` e inicie una aplicación nueva.
 2. Seleccione el repositorio, la rama `main` y el archivo `app.py`.
-3. En **Advanced settings → Secrets** agregue:
+3. En **Advanced settings**, seleccione **Python 3.12**.
+4. En **Advanced settings → Secrets** agregue:
 
 ```toml
 ACCESS_PASSWORD = "una-contraseña-larga-y-única"
@@ -50,7 +51,7 @@ ACCESS_VERSION = "2026-08-v1"
 CAME_DEV_MODE = false
 ```
 
-4. Opcionalmente agregue:
+5. Opcionalmente agregue:
 
 ```toml
 REQUEST_TIMEOUT_SECONDS = 45
@@ -58,7 +59,7 @@ REQUEST_TIMEOUT_SECONDS = 45
 # CHILE_DEMAND_URL = "https://descarga-oficial-administrada/demanda.xlsx"
 ```
 
-5. Despliegue y abra la URL. Debe aparecer el formulario de acceso antes de la navegación.
+6. Despliegue y abra la URL. Debe aparecer el formulario de acceso antes de la navegación.
 
 Para revocar todas las sesiones compartidas, cambie `ACCESS_VERSION` y reinicie la aplicación.
 Para cambiar únicamente la credencial, cambie también `ACCESS_PASSWORD`.
@@ -80,5 +81,9 @@ Para cambiar únicamente la credencial, cambie también `ACCESS_PASSWORD`.
 - La caché evita repetir descargas dentro de su vigencia.
 - Si una fuente falla, la interfaz muestra el error y conserva resultados válidos de las demás.
 - Los bloques de mantenimiento se conservan temporalmente para reanudar en la misma instancia.
+- No publique cambios en GitHub ni reinicie la aplicación durante una construcción histórica;
+  espere hasta que aparezca **Descargar ZIP listo para GitHub**.
+- Streamlit Community Cloud no garantiza la permanencia del disco local después de un reinicio
+  total. Descargue el ZIP apenas aparezca y publique sus tres archivos juntos en GitHub.
 - Los archivos chilenos se procesan en memoria; solo el paquete descargado se publica en GitHub.
 - Revise trimestralmente dependencias y contratos vivos antes de actualizar versiones.

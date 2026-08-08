@@ -64,11 +64,11 @@ def page_generation_technology(timeout: int) -> None:
         title="Generación por tecnología",
         unit="GWh",
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     latest = filtered[filtered["datetime"] == filtered["datetime"].max()]
     st.plotly_chart(
         px.pie(latest, values="GWh", names="technology", title="Participación del último periodo"),
-        use_container_width=True,
+        width="stretch",
     )
     query = st.session_state.get("gen_tech_query", (start, end, frequency))
     export_and_collect(

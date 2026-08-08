@@ -11,6 +11,7 @@
 - [x] Acceso, sesión y configuración.
 - [x] Calidad, unidades, agregaciones, exportaciones e Informe ejecutivo.
 - [x] Navegación y diseño pedagógico común.
+- [x] Introducción con mapa de módulos, ruta recomendada y condiciones de uso de ELAE.
 
 ## Hito 2 — Colombia
 
@@ -33,7 +34,7 @@
 
 ## Hito 5 — Cierre
 
-- [x] Cinco espacios de casos de estudio y último módulo de Informe ejecutivo.
+- [x] Cinco espacios denominados Casos de estudio y último módulo de Informe ejecutivo.
 - [x] Pruebas unitarias, integración, numéricas, interfaz y seguridad.
 - [x] Documentación y paquete de despliegue.
 

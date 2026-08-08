@@ -45,7 +45,7 @@ def page_xm_explorer(timeout: int) -> None:
             .any(axis=1)
         )
         visible = visible[mask]
-    st.dataframe(visible, use_container_width=True, hide_index=True)
+    st.dataframe(visible, width="stretch", hide_index=True)
     supported = visible[visible["Type"].astype(str) != "ListsEntities"].copy()
     labels = {
         f"{row.MetricId} · {row.MetricName} · {row.Entity} · {row.MetricUnits}": (
@@ -76,7 +76,7 @@ def page_xm_explorer(timeout: int) -> None:
     indicators = summary_indicators(data)
     show_indicators(indicators)
     fig = line(data, "value", title=result.meta.variable_name, unit=result.meta.unit)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     show_warnings(result.warnings)
     metric, entity, query_start, query_end = st.session_state["explorer_query"]
     export_and_collect(

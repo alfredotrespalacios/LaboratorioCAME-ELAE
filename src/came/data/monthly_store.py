@@ -8,7 +8,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import shutil
+import tempfile
+import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from io import BytesIO
@@ -42,6 +47,7 @@ LONG_COLUMNS = (
 )
 
 SERIES_KEY = ("datetime", "country", "series_id")
+PackageProgressCallback = Callable[[str], None]
 
 
 @dataclass(frozen=True)
@@ -117,7 +123,7 @@ class MonthlyPackage:
 
 @dataclass(frozen=True)
 class StoredMonthlyPackage:
-    """Rutas de un paquete ya escrito en el disco temporal de Streamlit."""
+    """Rutas de un paquete ya escrito en el almacenamiento de ejecución."""
 
     spec: CountryPackageSpec
     directory: Path
@@ -136,6 +142,70 @@ def get_package_spec(country: str) -> CountryPackageSpec:
     if code not in PACKAGE_SPECS:
         raise ValueError(f"País no soportado: {country}.")
     return PACKAGE_SPECS[code]
+
+
+def runtime_storage_root(*, create: bool = False) -> Path:
+    """Devuelve una ruta ajena al repositorio para avances y descargas recuperables.
+
+    Streamlit vuelve a ejecutar el código con frecuencia. La ubicación es estable durante la
+    vida de la instancia y evita que los archivos generados activen el observador del código.
+    Community Cloud sigue siendo un almacenamiento efímero: un reinicio total puede borrarlo.
+    """
+
+    configured = os.getenv("CAME_RUNTIME_STORAGE")
+    preferred = Path(configured).expanduser() if configured else Path.home() / ".cache" / "came"
+    fallback = Path(tempfile.gettempdir()) / "laboratorio_came_runtime"
+    candidates = (preferred, fallback)
+    if not create:
+        return preferred if preferred.exists() or not fallback.exists() else fallback
+    last_error: OSError | None = None
+    for candidate in candidates:
+        try:
+            candidate.mkdir(parents=True, exist_ok=True)
+            return candidate
+        except OSError as exc:
+            last_error = exc
+    raise OSError("No fue posible crear el almacenamiento de ejecución.") from last_error
+
+
+def allocate_ready_package_directory(country: str, build_id: str) -> Path:
+    """Reserva un directorio único para publicar un paquete terminado."""
+
+    spec = get_package_spec(country)
+    safe_id = re.sub(r"[^a-zA-Z0-9_.-]+", "_", build_id).strip("._") or "construccion"
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    name = f"{stamp}_{safe_id}_{uuid.uuid4().hex[:8]}"
+    return runtime_storage_root(create=True) / "ready" / spec.code / name
+
+
+def _legacy_package_manifests() -> list[Path]:
+    legacy_root = Path(tempfile.gettempdir()) / "laboratorio_came"
+    if not legacy_root.exists():
+        return []
+    return list(legacy_root.glob("*/package/Paquete_listo.json"))
+
+
+def discover_ready_monthly_package(country: str) -> StoredMonthlyPackage | None:
+    """Encuentra el paquete más reciente incluso si se perdió ``session_state``."""
+
+    spec = get_package_spec(country)
+    manifests: list[Path] = []
+    ready_root = runtime_storage_root() / "ready" / spec.code
+    if ready_root.exists():
+        manifests.extend(ready_root.glob("*/Paquete_listo.json"))
+    manifests.extend(_legacy_package_manifests())
+
+    candidates: list[tuple[float, StoredMonthlyPackage]] = []
+    for manifest_path in manifests:
+        try:
+            package = load_stored_monthly_package(manifest_path.parent, spec.code, required=True)
+        except (FileNotFoundError, KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
+            continue
+        if package is not None:
+            candidates.append((manifest_path.stat().st_mtime, package))
+    if not candidates:
+        return None
+    return max(candidates, key=lambda item: item[0])[1]
 
 
 def last_complete_month(reference: object | None = None) -> pd.Timestamp:
@@ -252,20 +322,20 @@ def build_series_catalog(frame: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def _excel_bytes(
+def _write_excel_catalog(
+    destination: str | Path | BytesIO,
     catalog: pd.DataFrame,
     coverage: pd.DataFrame,
     validation: ValidationResult,
     additional_sheets: dict[str, pd.DataFrame] | None,
-) -> bytes:
-    buffer = BytesIO()
+) -> None:
     sheets = {
         "Catálogo de series": catalog,
         "Cobertura mensual": coverage,
         "Validación paquete": validation.as_frame(),
     }
     sheets.update(additional_sheets or {})
-    with pd.ExcelWriter(buffer, engine="xlsxwriter", datetime_format="yyyy-mm-dd") as writer:
+    with pd.ExcelWriter(destination, engine="xlsxwriter", datetime_format="yyyy-mm-dd") as writer:
         workbook = writer.book
         header = workbook.add_format({"bold": True, "bg_color": "#1F4E79", "font_color": "#FFFFFF"})
         for raw_name, raw_frame in sheets.items():
@@ -295,6 +365,16 @@ def _excel_bytes(
                     int(sample.str.len().quantile(0.9)) + 2 if not sample.empty else 10,
                 )
                 sheet.set_column(index, index, min(width, 44))
+
+
+def _excel_bytes(
+    catalog: pd.DataFrame,
+    coverage: pd.DataFrame,
+    validation: ValidationResult,
+    additional_sheets: dict[str, pd.DataFrame] | None,
+) -> bytes:
+    buffer = BytesIO()
+    _write_excel_catalog(buffer, catalog, coverage, validation, additional_sheets)
     return buffer.getvalue()
 
 
@@ -317,6 +397,19 @@ def _coverage_frame(frame: pd.DataFrame) -> pd.DataFrame:
 
 def _sha256(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _package_progress(callback: PackageProgressCallback | None, message: str) -> None:
+    if callback:
+        callback(message)
 
 
 def create_monthly_package(
@@ -375,6 +468,126 @@ def create_monthly_package(
         metadata_bytes=metadata_bytes,
         zip_bytes=zip_buffer.getvalue(),
     )
+
+
+def create_stored_monthly_package(
+    frame: pd.DataFrame,
+    country: str,
+    directory: str | Path,
+    *,
+    additional_sheets: dict[str, pd.DataFrame] | None = None,
+    build_notes: list[str] | None = None,
+    reference: object | None = None,
+    progress: PackageProgressCallback | None = None,
+) -> StoredMonthlyPackage:
+    """Valida y escribe un paquete sin conservar Parquet, Excel y ZIP duplicados en RAM.
+
+    El directorio definitivo se publica únicamente cuando los cuatro archivos y el manifiesto
+    están completos. Así una recarga de Streamlit nunca descubre un paquete a medio construir.
+    """
+
+    output = Path(directory)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    if output.exists():
+        raise FileExistsError(f"El directorio de salida ya existe: {output}")
+    staging = output.with_name(f".{output.name}.building-{uuid.uuid4().hex[:8]}")
+    staging.mkdir(parents=True, exist_ok=False)
+    spec = get_package_spec(country)
+
+    try:
+        _package_progress(progress, "1/5 · Validando la estructura y la cobertura mensual…")
+        data = normalize_monthly_data(frame)
+        validation = validate_monthly_data(data, spec.code, reference=reference)
+        if not validation.ok:
+            raise ValueError("No se creó el paquete: " + " ".join(validation.issues))
+
+        parquet_path = staging / spec.parquet_name
+        catalog_path = staging / spec.catalog_name
+        metadata_path = staging / spec.metadata_name
+        zip_name = f"Base_mensual_{spec.label}.zip"
+        zip_path = staging / zip_name
+        manifest_path = staging / "Paquete_listo.json"
+
+        _package_progress(progress, "2/5 · Escribiendo el Parquet mensual en disco…")
+        data.to_parquet(parquet_path, index=False, compression="zstd")
+
+        _package_progress(progress, "3/5 · Construyendo el catálogo Excel…")
+        catalog = build_series_catalog(data)
+        coverage = _coverage_frame(data)
+        _write_excel_catalog(
+            catalog_path,
+            catalog,
+            coverage,
+            validation,
+            additional_sheets,
+        )
+        del catalog, coverage
+
+        created_at = datetime.now(timezone.utc).isoformat()
+        metadata = {
+            "schema_version": SCHEMA_VERSION,
+            "country": spec.code,
+            "country_name": spec.label,
+            "created_at_utc": created_at,
+            "last_complete_month": data["datetime"].max().date().isoformat(),
+            "first_month": data["datetime"].min().date().isoformat(),
+            "rows": len(data),
+            "series": int(data["series_id"].nunique()),
+            "sources": sorted(data["source"].dropna().astype(str).unique()),
+            "notes": build_notes or [],
+            "files": {
+                spec.parquet_name: {
+                    "sha256": _sha256_file(parquet_path),
+                    "bytes": parquet_path.stat().st_size,
+                },
+                spec.catalog_name: {
+                    "sha256": _sha256_file(catalog_path),
+                    "bytes": catalog_path.stat().st_size,
+                },
+            },
+        }
+        metadata_path.write_text(
+            json.dumps(metadata, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        _package_progress(progress, "4/5 · Comprimiendo el ZIP descargable…")
+        root = spec.relative_directory.as_posix()
+        with ZipFile(zip_path, "w", ZIP_DEFLATED) as archive:
+            archive.write(parquet_path, f"{root}/{spec.parquet_name}")
+            archive.write(catalog_path, f"{root}/{spec.catalog_name}")
+            archive.write(metadata_path, f"{root}/{spec.metadata_name}")
+
+        _package_progress(progress, "5/5 · Publicando el paquete terminado…")
+        manifest = {
+            "country": spec.code,
+            "created_at_utc": created_at,
+            "zip_name": zip_name,
+            "parquet_name": spec.parquet_name,
+            "catalog_name": spec.catalog_name,
+            "metadata_name": spec.metadata_name,
+            "validation_ok": validation.ok,
+            "validation_issues": validation.issues,
+            "validation_summary": validation.summary,
+            "sizes": {
+                zip_name: zip_path.stat().st_size,
+                spec.parquet_name: parquet_path.stat().st_size,
+                spec.catalog_name: catalog_path.stat().st_size,
+                spec.metadata_name: metadata_path.stat().st_size,
+            },
+        }
+        manifest_path.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2, default=str),
+            encoding="utf-8",
+        )
+        staging.replace(output)
+        package = load_stored_monthly_package(output, spec.code, required=True)
+        if package is None:  # pragma: no cover - ``required`` ya obliga una excepción.
+            raise FileNotFoundError("El paquete se publicó, pero no pudo abrirse.")
+        return package
+    except Exception:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
 
 
 def _write_bytes_atomically(path: Path, content: bytes) -> None:

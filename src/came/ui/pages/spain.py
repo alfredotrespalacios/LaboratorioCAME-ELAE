@@ -72,7 +72,7 @@ def page_spain(timeout: int) -> None:
         }
         show_indicators(indicators)
         fig = px.line(filtered, x="datetime", y="value", color="entity_name", title=widget_name)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         show_warnings(result.warnings)
         mode = st.session_state["spain_mode"]
         export_and_collect(
@@ -113,7 +113,7 @@ def page_spain(timeout: int) -> None:
     indicators = summary_indicators(data)
     show_indicators(indicators)
     fig = line(data, "value", title="Precio del mercado diario — España", unit="EUR/MWh")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     local = data["datetime"].dt.tz_convert("Europe/Madrid")
     profile = data.assign(Hora=local.dt.hour).groupby("Hora", as_index=False)["value"].mean()
     st.plotly_chart(
@@ -125,7 +125,7 @@ def page_spain(timeout: int) -> None:
             title="Perfil intradiario promedio",
             unit="EUR/MWh",
         ),
-        use_container_width=True,
+        width="stretch",
     )
     show_warnings(result.warnings)
     query = st.session_state["omie_query"]

@@ -8,7 +8,13 @@ import pytest
 from openpyxl import load_workbook
 from streamlit.testing.v1 import AppTest
 
-from came.data.monthly_store import create_monthly_package, get_package_spec, store_monthly_package
+from came.data.monthly_store import (
+    allocate_ready_package_directory,
+    create_monthly_package,
+    create_stored_monthly_package,
+    get_package_spec,
+    store_monthly_package,
+)
 from came.exports import build_excel, build_pdf
 from came.report import build_executive_prompt, make_package
 
@@ -82,11 +88,20 @@ def test_each_visible_module_has_its_own_page_file() -> None:
         "modeling_forecast.py",
         "sarima_garch.py",
         "portfolio_montecarlo.py",
-        "activities.py",
+        "introduction.py",
+        "case_studies.py",
         "executive_report.py",
         "data_maintenance.py",
     }
     assert expected.issubset({path.name for path in pages.glob("*.py")})
+
+
+def test_introduction_precedes_colombia_and_case_studies_are_named() -> None:
+    text = (Path(__file__).resolve().parents[1] / "app.py").read_text(encoding="utf-8")
+    assert text.index('"Inicio"') < text.index('"Colombia"')
+    assert 'title="Introducción"' in text
+    assert 'default=True' in text
+    assert '"Casos de estudio"' in text
 
 
 def test_integrated_module_points_to_data_maintenance() -> None:
@@ -169,13 +184,139 @@ _show_result(
     assert not app.exception
     labels = [button.label for button in app.get("download_button")]
     assert "Descargar ZIP listo para GitHub" in labels
-    assert package.spec.parquet_name in labels
-    assert package.spec.catalog_name in labels
-    assert package.spec.metadata_name in labels
+    assert package.spec.parquet_name not in labels
 
     app.run()
     labels_after_rerun = [button.label for button in app.get("download_button")]
     assert "Descargar ZIP listo para GitHub" in labels_after_rerun
+
+    individual = next(
+        checkbox
+        for checkbox in app.checkbox
+        if checkbox.label == "Necesito descargar también un archivo individual"
+    )
+    individual.check().run()
+    labels_with_individual = [button.label for button in app.get("download_button")]
+    assert f"Descargar {package.spec.parquet_name}" in labels_with_individual
+
+
+def test_data_maintenance_recovers_latest_zip_in_a_fresh_session(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("CAME_RUNTIME_STORAGE", str(tmp_path / "runtime"))
+    data = pd.DataFrame(
+        [
+            {
+                "datetime": pd.Timestamp("2024-01-01", tz="UTC"),
+                "country": "COL",
+                "family": "Mercado",
+                "level": "Sistema",
+                "entity_code": "SIN",
+                "entity_name": "Colombia",
+                "variable": "Precio",
+                "unit": "COP/kWh",
+                "value": 100.0,
+                "source": "XM",
+                "dataset": "Prueba/Sistema",
+                "aggregation": "Promedio mensual",
+                "series_id": "col_precio_prueba",
+                "series_name": "Precio de prueba",
+                "catalog_date": "2026-08-08",
+            }
+        ]
+    )
+    output = allocate_ready_package_directory("COL", "fresh-session")
+    create_stored_monthly_package(data, "COL", output, reference="2024-02-15")
+    script = """
+from came.ui.pages.data_maintenance import _show_result, _state_or_latest
+
+state = _state_or_latest("brand_new_session", "COL")
+assert state is not None
+assert state["recovered"] is True
+_show_result(state, "fresh_session_package")
+"""
+
+    app = AppTest.from_string(script, default_timeout=30).run()
+
+    assert not app.exception
+    assert "Descargar ZIP listo para GitHub" in [
+        button.label for button in app.get("download_button")
+    ]
+
+
+def test_first_base_flow_finishes_with_zip_and_a_new_session_recovers_it(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("CAME_RUNTIME_STORAGE", str(tmp_path / "runtime"))
+    script = """
+from types import SimpleNamespace
+
+import pandas as pd
+import came.ui.pages.data_maintenance as page
+from came.data.maintenance import BuildResult
+from came.data.monthly_store import LONG_COLUMNS
+
+row = {
+    "datetime": pd.Timestamp("2024-01-01", tz="UTC"),
+    "country": "COL",
+    "family": "Mercado",
+    "level": "Sistema",
+    "entity_code": "SIN",
+    "entity_name": "Colombia",
+    "variable": "Precio",
+    "unit": "COP/kWh",
+    "value": 100.0,
+    "source": "XM",
+    "dataset": "Prueba/Sistema",
+    "aggregation": "Promedio mensual",
+    "series_id": "col_precio_prueba",
+    "series_name": "Precio de prueba",
+    "catalog_date": "2026-08-08",
+}
+
+class FakeBuilder:
+    def __init__(self, *args, **kwargs):
+        self.checkpoints = SimpleNamespace(directory=None)
+
+    def clear_checkpoints(self):
+        pass
+
+    def build(self, *args, **kwargs):
+        return BuildResult(
+            country="COL",
+            data=pd.DataFrame([row]),
+            status=pd.DataFrame({"Fuente": ["XM"], "Estado": ["Aprobado"]}),
+        )
+
+page.ColombiaMonthlyBuilder = FakeBuilder
+page._load_existing = lambda country: (pd.DataFrame(columns=LONG_COLUMNS), {}, None)
+page.page_data_maintenance(1)
+"""
+    app = AppTest.from_string(script, default_timeout=30).run()
+    operation = next(radio for radio in app.radio if radio.label == "Operación para Colombia")
+    operation.set_value("Construir la primera base").run()
+    confirmation = next(
+        checkbox
+        for checkbox in app.checkbox
+        if checkbox.label
+        == "Entiendo que la operación puede tardar y mantendré abierta esta pestaña."
+    )
+    confirmation.check().run()
+    run_button = next(
+        button for button in app.button if button.label == "Reanudar o iniciar construcción"
+    )
+    run_button.click().run()
+
+    assert not app.exception
+    assert "Descargar ZIP listo para GitHub" in [
+        button.label for button in app.get("download_button")
+    ]
+
+    fresh_app = AppTest.from_string(script, default_timeout=30).run()
+    assert not fresh_app.exception
+    assert "Descargar ZIP listo para GitHub" in [
+        button.label for button in fresh_app.get("download_button")
+    ]
 
 
 def test_result_is_saved_for_the_report_only_after_clicking_the_button() -> None:
@@ -227,7 +368,8 @@ def test_streamlit_default_page_smoke(monkeypatch) -> None:
     app = AppTest.from_file(str(app_path), default_timeout=30).run()
     assert not app.exception
     assert app.title[0].value == "Laboratorio CAME"
-    assert app.header[0].value == "1. Precio de bolsa"
+    assert app.header[0].value == "Introducción"
+    assert "Esta aplicación es propiedad de ELAE" in app.info[0].value
 
 
 @pytest.mark.parametrize(

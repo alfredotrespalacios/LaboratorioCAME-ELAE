@@ -60,7 +60,7 @@ def page_balance(timeout: int) -> None:
     edited = st.data_editor(
         st.session_state["balance_seed"],
         num_rows="dynamic",
-        use_container_width=True,
+        width="stretch",
         key="balance_editor",
         column_config={
             "CEN_MW": st.column_config.NumberColumn(min_value=0.0, format="%.2f"),
@@ -114,11 +114,11 @@ def page_balance(timeout: int) -> None:
         )
         return
     summary = result["summary"]
-    st.dataframe(summary, use_container_width=True, hide_index=True)
+    st.dataframe(summary, width="stretch", hide_index=True)
     fig = bars(
         summary, "Escenario", "Margen_pct", color="Escenario", title="Margen energético", unit="%"
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     indicators = {
         "Demanda_GWh_día": result["demand"],
         "Margen_normal_pct": summary.iloc[0]["Margen_pct"],
