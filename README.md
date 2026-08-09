@@ -4,7 +4,7 @@ Aplicación académica de ELAE para consultar, analizar y modelar mercados eléc
 construida con Streamlit y Plotly, usa fuentes oficiales abiertas y mantiene visibles las unidades,
 supuestos, coberturas y limitaciones de cada resultado.
 
-La versión 1.4.1 contiene una introducción de uso, los 19 módulos acordados, exportaciones Excel/PDF,
+La versión 1.5.0 contiene una introducción de uso, los 19 módulos acordados, exportaciones Excel/PDF,
 canasta manual para informe ejecutivo, acceso por contraseña, pruebas numéricas contra los Excel
 pedagógicos y un sistema mensual versionable que no requiere una base de datos externa.
 
@@ -35,8 +35,27 @@ También reconoce paquetes creados por la versión 1.3.0 mientras continúen en 
 La descarga principal carga solo el ZIP; los archivos individuales se habilitan bajo petición para
 reducir memoria. Si existe un error bloqueante, **0/5** indica explícitamente por qué no comenzó el
 empaquetado y permite reanudar únicamente los bloques pendientes. La ausencia explícita de una
-serie complementaria todavía no publicada queda como advertencia de cobertura; demanda, precio de
-bolsa y generación nacional continúan siendo obligatorios.
+serie complementaria todavía no publicada queda como advertencia de cobertura. Ninguna serie se
+impone como obligatoria: el paquete contiene exclusivamente las variables que el usuario conserve
+seleccionadas y sus columnas derivadas correspondientes.
+
+## Modelación, evaluación y pronóstico
+
+El módulo 11 distingue tres usos de la historia. La evaluación reserva cronológicamente un tramo
+final para medir desempeño; la calibración final reincorpora ese tramo y estima el modelo con todo
+el periodo seleccionado; el pronóstico futuro usa exclusivamente ese modelo final. El usuario
+elige las fechas del histórico y puede definir la prueba por fecha o por número de periodos. Los
+parámetros del modelo evaluado y del modelo final se muestran por separado, junto con los reportes
+completos de Statsmodels para OLS, ARIMA y SARIMA. Los errores de prueba nunca se mezclan con los
+residuales finales.
+
+## Balance energético por escenarios
+
+El módulo 7 conserva dos escenarios con nombres y demandas editables. La tabla tecnológica suma
+la CEN y la disponibilidad, lleva las participaciones a 100 % y calcula el FP total ponderado por
+CEN. La figura apila la disponibilidad de cada tecnología y agrega dos líneas de demanda cuyos
+nombres cambian con los escenarios. El cálculo de años hasta margen cero conserva el crecimiento
+anual común y presenta sus dos ecuaciones en pantalla y en el reporte.
 
 ## Bases mensuales publicadas
 

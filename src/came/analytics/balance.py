@@ -14,18 +14,35 @@ from came.errors import DataQualityError
 @dataclass
 class BalanceResult:
     table: pd.DataFrame
-    generation_available_gwh_day: float
+    availability_gwh_day: float
     demand_gwh_day: float
     margin: float
     uncovered_demand_gwh_day: float
     uncovered_demand_pct: float
     generation_demand_ratio: float
 
+    @property
+    def generation_available_gwh_day(self) -> float:
+        """Alias conservado para compatibilidad con resultados de versiones anteriores."""
+
+        return self.availability_gwh_day
+
 
 def generation_available_gwh_day(capacity_mw: object, plant_factor: object) -> np.ndarray:
     capacity = np.asarray(capacity_mw, dtype=float)
     factor = np.asarray(plant_factor, dtype=float)
     return capacity * factor * 24 / 1000
+
+
+def weighted_plant_factor(capacity_mw: object, plant_factor: object) -> float:
+    """Promedia el factor de planta ponderándolo por la CEN de cada tecnología."""
+
+    capacity = np.asarray(capacity_mw, dtype=float)
+    factor = np.asarray(plant_factor, dtype=float)
+    total_capacity = float(np.nansum(capacity))
+    if total_capacity <= 0:
+        return 0.0
+    return float(np.nansum(capacity * factor) / total_capacity)
 
 
 def build_default_balance_table(capacity_by_technology: dict[str, float]) -> pd.DataFrame:
@@ -69,15 +86,15 @@ def calculate_balance(
     if ((data[factor_column] < 0) | (data[factor_column] > 1)).any():
         raise DataQualityError("El factor de planta debe estar entre 0 y 1.")
 
-    data["Generación_disponible_GWh_día"] = generation_available_gwh_day(
+    data["Disponibilidad_GWh_día"] = generation_available_gwh_day(
         data[capacity_column], data[factor_column]
     )
-    total = float(data["Generación_disponible_GWh_día"].sum())
+    total = float(data["Disponibilidad_GWh_día"].sum())
     margin = total / demand_gwh_day - 1
     uncovered = max(demand_gwh_day - total, 0.0)
     return BalanceResult(
         table=data,
-        generation_available_gwh_day=total,
+        availability_gwh_day=total,
         demand_gwh_day=float(demand_gwh_day),
         margin=float(margin),
         uncovered_demand_gwh_day=float(uncovered),
@@ -96,3 +113,83 @@ def years_until_zero_margin(
     if growth <= 0:
         return float("inf")
     return float(np.log(available_generation / current_demand) / np.log1p(growth))
+
+
+def build_balance_comparison(
+    table: pd.DataFrame,
+    *,
+    first_name: str,
+    first_demand_gwh_day: float,
+    second_name: str,
+    second_demand_gwh_day: float,
+    first_factor_column: str = "FP_normal",
+    second_factor_column: str = "FP_nino",
+) -> pd.DataFrame:
+    """Crea la tabla comparativa y agrega una fila total verificable."""
+
+    first_name = str(first_name).strip() or "Escenario 1"
+    second_name = str(second_name).strip() or "Escenario 2"
+    first = calculate_balance(
+        table,
+        demand_gwh_day=first_demand_gwh_day,
+        factor_column=first_factor_column,
+    )
+    second = calculate_balance(
+        table,
+        demand_gwh_day=second_demand_gwh_day,
+        factor_column=second_factor_column,
+    )
+    capacity = pd.to_numeric(first.table["CEN_MW"], errors="coerce").fillna(0.0)
+    first_availability = first.table["Disponibilidad_GWh_día"].astype(float)
+    second_availability = second.table["Disponibilidad_GWh_día"].astype(float)
+    first_factor = first.table[first_factor_column].astype(float)
+    second_factor = second.table[second_factor_column].astype(float)
+
+    first_fp_col = f"FP · {first_name}"
+    first_availability_col = f"Disponibilidad · {first_name} (GWh-día)"
+    first_share_col = f"Participación · {first_name} (%)"
+    first_demand_col = f"Demanda · {first_name} (GWh-día)"
+    second_fp_col = f"FP · {second_name}"
+    second_availability_col = f"Disponibilidad · {second_name} (GWh-día)"
+    second_share_col = f"Participación · {second_name} (%)"
+    second_demand_col = f"Demanda · {second_name} (GWh-día)"
+
+    comparison = pd.DataFrame(
+        {
+            "Tecnología": first.table["Tecnología"].astype(str),
+            "CEN_MW": capacity,
+            first_fp_col: first_factor,
+            first_availability_col: first_availability,
+            first_share_col: (
+                first_availability / first.availability_gwh_day * 100
+                if first.availability_gwh_day > 0
+                else 0.0
+            ),
+            first_demand_col: float(first_demand_gwh_day),
+            second_fp_col: second_factor,
+            second_availability_col: second_availability,
+            second_share_col: (
+                second_availability / second.availability_gwh_day * 100
+                if second.availability_gwh_day > 0
+                else 0.0
+            ),
+            second_demand_col: float(second_demand_gwh_day),
+        }
+    )
+    total = pd.DataFrame(
+        [
+            {
+                "Tecnología": "Total",
+                "CEN_MW": float(capacity.sum()),
+                first_fp_col: weighted_plant_factor(capacity, first_factor),
+                first_availability_col: first.availability_gwh_day,
+                first_share_col: 100.0 if first.availability_gwh_day > 0 else 0.0,
+                first_demand_col: float(first_demand_gwh_day),
+                second_fp_col: weighted_plant_factor(capacity, second_factor),
+                second_availability_col: second.availability_gwh_day,
+                second_share_col: 100.0 if second.availability_gwh_day > 0 else 0.0,
+                second_demand_col: float(second_demand_gwh_day),
+            }
+        ]
+    )
+    return pd.concat([comparison, total], ignore_index=True)

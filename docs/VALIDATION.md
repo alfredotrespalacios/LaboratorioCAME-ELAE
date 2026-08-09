@@ -1,11 +1,11 @@
-# Informe de validación v1.4.1
+# Informe de validación v1.5.0
 
 Fecha: 8 de agosto de 2026.
 
 ## Resultado
 
 - Lint: `ruff check .` sin hallazgos.
-- Pruebas locales: 77 aprobadas; 3 contratos externos excluidos del chequeo local.
+- Pruebas locales: 86 aprobadas; 3 contratos externos excluidos del chequeo local.
 - Contratos vivos: se mantienen separados del cierre reproducible porque dependen de servicios
   externos; ejecútelos con `make live-check` antes y después de desplegar.
 - Smoke de Streamlit: página inicial cargada sin excepciones en modo local.
@@ -42,10 +42,16 @@ Fecha: 8 de agosto de 2026.
   escritura si la carpeta desaparece exactamente durante la operación.
 - Compatibilidad Streamlit 1.61: se sustituyó `use_container_width` por `width`, sin advertencias
   de la API durante el smoke local.
-- Modelación supervisada: transformaciones por variable, ajuste con 100 %, importancias de Random
-  Forest, pronóstico recursivo e intervalos OLS validados con datos sintéticos.
-- Series temporales: validación cronológica, MASE, origen móvil, diagnósticos ACF/PACF y reporte
-  Statsmodels disponibles en pantalla y exportaciones.
+- Modelación supervisada: periodo histórico seleccionable, evaluación por fecha o periodos,
+  recalibración final con 100 %, importancias de Random Forest, pronóstico recursivo, intervalos y
+  dos reportes OLS de Statsmodels validados con datos sintéticos.
+- Series temporales: evaluación cronológica separada de la calibración final, MASE, origen móvil,
+  diagnósticos ACF/PACF y reportes Statsmodels de evaluación y finales disponibles en pantalla y
+  exportaciones.
+- Balance: demandas y nombres distintos por escenario, FP total ponderado por CEN, fila Total,
+  ecuaciones de margen cero, dos líneas de demanda y PDF con figuras validados en Streamlit.
+- PDF: la conversión real de Plotly a PNG fue probada; una falla de render impide entregar un PDF
+  sin las figuras solicitadas.
 - Portafolios: diez porcentajes contratados y cinco escenarios de correlación o precio producen 50
   combinaciones comparables con la misma semilla; M-CVaR está incluido.
 
@@ -57,9 +63,9 @@ Los valores de capacidad y factores de planta de las filas 17–27 del Excel pro
 
 | Resultado | Excel | Aplicación |
 |---|---:|---:|
-| Generación disponible normal (GWh-día) | 306,5114852424 | 306,5114852424 |
+| Disponibilidad normal (GWh-día) | 306,5114852424 | 306,5114852424 |
 | Margen normal | 0,3043041925 | 0,3043041925 |
-| Generación disponible Niño (GWh-día) | 252,6086998824 | 252,6086998824 |
+| Disponibilidad Niño (GWh-día) | 252,6086998824 | 252,6086998824 |
 | Margen Niño | 0,0642877602 | 0,0642877602 |
 
 ### Curva rápida

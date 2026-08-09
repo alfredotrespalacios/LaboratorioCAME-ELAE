@@ -1,4 +1,4 @@
-# Laboratorio CAME — especificación funcional v1.4.1
+# Laboratorio CAME — especificación funcional v1.5.0
 
 Fecha de consolidación: 8 de agosto de 2026.
 
@@ -55,6 +55,12 @@ conciliación mensual de los tres niveles.
 11. Laboratorio de modelación y pronóstico.
 12. Modelación de volatilidad SARIMA–GARCH.
 
+En el módulo 11, el usuario selecciona el periodo histórico. La evaluación fuera de muestra es
+opcional y se define por fecha inicial o número de periodos. Después de evaluar, el método se
+recalibra con todo el histórico seleccionado antes de pronosticar. Los parámetros de evaluación y
+los finales, los errores de prueba y los residuales finales se muestran y exportan por separado.
+OLS, ARIMA y SARIMA incluyen sus reportes completos de Statsmodels.
+
 ### Estructuración de portafolios
 
 13. Portafolio de generación y simulación Monte Carlo.
@@ -108,13 +114,14 @@ y el ZIP no incorpora series de mercado no solicitadas.
 ## Valores predeterminados aprobados
 
 - Frecuencia general mensual y máxima historia disponible.
-- Partición de modelación 80/20 cronológica; intervalos 80 % y 95 %.
+- Evaluación cronológica opcional; doce periodos de prueba como valor inicial e intervalos 80 % y 95 %.
 - Rezagos: anterior, seis meses, un año y Tiempo, solo cuando el usuario los elige.
 - GARCH(1,1) sobre residuales SARIMA; distribución normal y t de Student.
 - Monte Carlo: 1.000 iteraciones iniciales y máximo 1.000.000.
 - Balance: hidro 52 %/35 %, térmicas 90 %, solar 17 %, eólica 25 %.
 - Curva: P5 para hidráulica, solar y eólica; P50 para las demás tecnologías.
-- Exactamente dos escenarios, con nombres editables.
+- Exactamente dos escenarios de Balance, con nombres y demandas editables, crecimiento anual común,
+  fila Total y dos líneas de demanda en la figura apilada.
 - Informe: hasta tres noticias y cuatro preguntas; conservar hasta “Nuevo informe”.
 
 ## Definición de terminado

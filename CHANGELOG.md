@@ -1,5 +1,18 @@
 # Historial de cambios
 
+## 1.5.0 — 2026-08-08
+
+- Separa en Modelación la evaluación fuera de muestra, la calibración final y el pronóstico.
+- Permite seleccionar las fechas del histórico y definir la prueba por fecha o número de periodos,
+  con origen móvil como alternativa avanzada.
+- Recalibra el modelo definitivo con todo el histórico seleccionado y presenta por separado los
+  parámetros de evaluación y los parámetros finales, incluidos los reportes Statsmodels.
+- Separa errores de prueba y residuales finales en pantalla, Excel y PDF.
+- Amplía el Balance con nombres y demandas editables por escenario, crecimiento común, ecuaciones
+  de margen cero, fila Total, FP ponderado por CEN y disponibilidad por tecnología.
+- Añade dos líneas de demanda con nombres dinámicos sobre las barras apiladas de disponibilidad.
+- Incluye las figuras en los PDF y detiene la exportación si una figura no puede renderizarse.
+
 ## 1.4.1 — 2026-08-08
 
 - Corrige la construcción de la primera base: ninguna variable es obligatoria y solo se

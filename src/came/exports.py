@@ -102,11 +102,16 @@ def build_excel(
     return buffer.getvalue()
 
 
-def plotly_png(figure: Any, width: int = 1200, height: int = 650) -> bytes | None:
+def plotly_png(figure: Any, width: int = 1200, height: int = 650) -> bytes:
+    """Renderiza una figura para PDF y evita exportaciones silenciosamente incompletas."""
+
     try:
         return figure.to_image(format="png", width=width, height=height, scale=1.5)
-    except Exception:
-        return None
+    except Exception as exc:
+        raise RuntimeError(
+            "No fue posible convertir una figura para el PDF. Verifique la dependencia "
+            "kaleido==0.2.1 y vuelva a generar el reporte."
+        ) from exc
 
 
 def _paragraph_text(value: Any) -> str:

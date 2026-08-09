@@ -2,11 +2,14 @@
 
 ## Estado actual
 
-- Versión 1.4.1 implementada y validada localmente el 8 de agosto de 2026.
+- Versión 1.5.0 implementada y validada localmente el 8 de agosto de 2026.
 - Navegación definitiva: introducción, 19 módulos y mantenimiento técnico no numerado.
 - Base mensual de Colombia configurable, con canasta recomendada y catálogo completo para descarga.
-- Modelación supervisada y temporal con transformaciones, prueba cronológica, diagnósticos,
-  validación de origen móvil, pronóstico y comparación exportable.
+- Modelación supervisada y temporal con periodo histórico editable, evaluación cronológica por
+  fecha o periodos, recalibración final con toda la historia, diagnósticos, origen móvil,
+  pronóstico y comparación exportable.
+- Balance con nombres y demandas editables, fila Total, FP ponderado por CEN, ecuaciones de margen
+  cero y dos líneas de demanda sobre disponibilidades apiladas.
 - Portafolios Monte Carlo con posiciones contratadas entre −200 % y 200 %, sensibilidades conjuntas
   y métricas Media, desviación, VaR, CVaR y M-CVaR.
 - No existen credenciales reales ni archivos de entorno dentro del repositorio.
@@ -28,10 +31,13 @@
 ## Verificaciones cerradas
 
 - `ruff check .` sin hallazgos y compilación completa de `app.py`, `src/` y `tests/`.
-- 77 pruebas locales aprobadas; 3 contratos vivos quedan separados mediante la marca `live`.
+- 86 pruebas locales aprobadas; 3 contratos vivos quedan separados mediante la marca `live`.
 - Smoke de la introducción y arranque directo de Modelación, Portafolios, Base integrada y
   Mantenimiento sin excepciones de Streamlit.
-- Balance y curva de oferta continúan contrastados con los Excel pedagógicos recibidos.
+- Balance y curva de oferta continúan contrastados con los Excel pedagógicos recibidos; el smoke
+  del Balance valida cálculo, ecuaciones, figuras y descargas Excel/PDF/JSON.
+- La exportación PDF renderiza las figuras con versiones fijadas de Plotly/Kaleido y no permite
+  producir silenciosamente un reporte incompleto si falla una imagen.
 - Empaquetado mensual, recuperación del ZIP, exclusión de periodos incompletos, reintentos y
   publicación atómica permanecen cubiertos por pruebas.
 

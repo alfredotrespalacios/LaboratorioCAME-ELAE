@@ -82,7 +82,7 @@ MODEL_GUIDES = {
 
 HYPERPARAMETER_GUIDE = pd.DataFrame(
     [
-        ("Proporción de entrenamiento", "Porcentaje inicial usado para estimar; el bloque final queda para prueba.", "Todos, si se reserva test"),
+        ("Periodo de evaluación", "Tramo inicial usado para calibrar el modelo evaluado; el bloque final queda fuera de muestra.", "Todos, si se evalúa"),
         ("Estandarizar", "Centra y divide por la desviación calculada solo con entrenamiento.", "Especialmente KNN"),
         ("Profundidad máxima", "Número máximo de niveles de cada árbol; más profundidad aumenta flexibilidad y riesgo de sobreajuste.", "Árbol y Random Forest"),
         ("Número de vecinos", "Cantidad de observaciones cercanas utilizadas en cada predicción.", "KNN"),
@@ -128,6 +128,79 @@ class SupervisedResult:
 LAG_LABELS = {"anterior": "1", "seis_meses": "6", "un_ano": "12"}
 LAG_PERIODS = {"anterior": 1, "seis_meses": 6, "un_ano": 12}
 ORIGINAL_TARGET_COLUMN = "__objetivo_original__"
+
+
+def select_historical_window(
+    frame: pd.DataFrame,
+    start: object,
+    end: object,
+) -> pd.DataFrame:
+    """Selecciona inclusivamente el histórico que podrá calibrarse y evaluarse."""
+
+    if "datetime" not in frame:
+        raise DataQualityError("La base debe contener la columna datetime.")
+    data = frame.copy()
+    dates = pd.to_datetime(data["datetime"], errors="coerce", utc=True)
+    start_timestamp = pd.Timestamp(start)
+    end_timestamp = pd.Timestamp(end)
+    start_timestamp = (
+        start_timestamp.tz_localize("UTC")
+        if start_timestamp.tzinfo is None
+        else start_timestamp.tz_convert("UTC")
+    )
+    end_timestamp = (
+        end_timestamp.tz_localize("UTC")
+        if end_timestamp.tzinfo is None
+        else end_timestamp.tz_convert("UTC")
+    )
+    # Una fecha final sin hora representa el día completo.
+    if end_timestamp == end_timestamp.normalize():
+        end_timestamp = end_timestamp + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
+    selected = data.loc[dates.between(start_timestamp, end_timestamp)].copy()
+    selected["datetime"] = dates.loc[selected.index]
+    selected = selected.sort_values("datetime").drop_duplicates("datetime").reset_index(drop=True)
+    if selected.empty:
+        raise DataQualityError("El periodo histórico seleccionado no contiene observaciones.")
+    return selected
+
+
+def evaluation_split_index(
+    dates: object,
+    *,
+    test_periods: int | None = None,
+    test_start: object | None = None,
+    minimum_training: int = 5,
+    minimum_test: int = 2,
+) -> int:
+    """Devuelve el primer índice de prueba para una separación cronológica exacta."""
+
+    ordered = pd.Series(pd.to_datetime(dates, errors="coerce", utc=True)).dropna()
+    if ordered.empty:
+        raise DataQualityError("No hay fechas válidas para definir la evaluación.")
+    if not ordered.is_monotonic_increasing:
+        raise DataQualityError("Las fechas deben estar ordenadas para separar la prueba.")
+    if test_start is not None:
+        start = pd.Timestamp(test_start)
+        start = start.tz_localize("UTC") if start.tzinfo is None else start.tz_convert("UTC")
+        positions = np.flatnonzero((ordered >= start).to_numpy())
+        if not len(positions):
+            raise DataQualityError("La fecha inicial de prueba queda después del histórico.")
+        split = int(positions[0])
+    elif test_periods is not None:
+        if int(test_periods) < minimum_test:
+            raise DataQualityError(
+                f"La prueba debe contener al menos {minimum_test} periodos."
+            )
+        split = len(ordered) - int(test_periods)
+    else:
+        raise DataQualityError("Defina la prueba mediante fecha inicial o número de periodos.")
+    if split < minimum_training:
+        raise DataQualityError(
+            f"La calibración para evaluación debe conservar al menos {minimum_training} observaciones."
+        )
+    if len(ordered) - split < minimum_test:
+        raise DataQualityError(f"La prueba debe contener al menos {minimum_test} observaciones.")
+    return split
 
 
 def normalize_transformation(value: object) -> str:
@@ -372,6 +445,7 @@ def fit_supervised(
     model: str,
     train_fraction: float = 0.80,
     reserve_test: bool = True,
+    split_index: int | None = None,
     standardize: bool | None = None,
     random_state: int = 42,
     max_depth: int = 4,
@@ -388,8 +462,15 @@ def fit_supervised(
     if len(data) < 10:
         raise DataQualityError("Se requieren al menos 10 observaciones completas.")
     attrs = dict(data.attrs)
-    split = int(np.floor(len(data) * train_fraction)) if reserve_test else len(data)
-    split = min(max(split, 5), len(data) - 2) if reserve_test else len(data)
+    if reserve_test and split_index is not None:
+        split = int(split_index)
+        if split < 5 or len(data) - split < 2:
+            raise DataQualityError(
+                "La separación debe conservar al menos cinco observaciones de calibración y dos de prueba."
+            )
+    else:
+        split = int(np.floor(len(data) * train_fraction)) if reserve_test else len(data)
+        split = min(max(split, 5), len(data) - 2) if reserve_test else len(data)
     train = data.iloc[:split].copy()
     test = data.iloc[split:].copy()
     use_standardize = model == "knn" if standardize is None else bool(standardize)
@@ -463,7 +544,12 @@ def fit_supervised(
             upper_95=bounds.get("upper_95"),
         )
 
-    metric_samples = {"Entrenamiento": (train_frame["observado"], train_frame["estimado"])}
+    metric_samples = {
+        "Entrenamiento" if reserve_test else "Ajuste final (100 %)": (
+            train_frame["observado"],
+            train_frame["estimado"],
+        )
+    }
     if reserve_test:
         metric_samples["Prueba"] = (test_frame["observado"], test_frame["estimado"])
     metrics_by_sample = metrics_table(metric_samples)
@@ -521,6 +607,13 @@ def fit_supervised(
         "n_neighbors": n_neighbors,
         "n_estimators": n_estimators,
         "diagnostic_lags": used_lags,
+        "split_index": split if reserve_test else None,
+        "calibration_start": str(train["datetime"].min()),
+        "calibration_end": str(train["datetime"].max()),
+        "test_start": str(test["datetime"].min()) if reserve_test else None,
+        "test_end": str(test["datetime"].max()) if reserve_test else None,
+        "observations_calibration": len(train),
+        "observations_test": len(test),
     }
     return SupervisedResult(
         model_name=name,
@@ -608,19 +701,22 @@ def forecast_supervised(result: SupervisedResult, history: pd.DataFrame, future_
     combined = pd.concat([history_work, future[["datetime"] + requested]], ignore_index=True)
     history_length = len(history_work)
 
-    full_result = fit_supervised(
-        result.prepared_data,
-        target=target,
-        feature_columns=result.feature_columns,
-        model=result.model_code,
-        reserve_test=False,
-        standardize=cfg.get("standardize"),
-        random_state=int(cfg.get("random_state", 42)),
-        max_depth=int(cfg.get("max_depth", 4)),
-        n_neighbors=int(cfg.get("n_neighbors", 5)),
-        n_estimators=int(cfg.get("n_estimators", 300)),
-    )
-    estimator = full_result.estimator
+    if result.reserve_test:
+        full_result = fit_supervised(
+            result.prepared_data,
+            target=target,
+            feature_columns=result.feature_columns,
+            model=result.model_code,
+            reserve_test=False,
+            standardize=cfg.get("standardize"),
+            random_state=int(cfg.get("random_state", 42)),
+            max_depth=int(cfg.get("max_depth", 4)),
+            n_neighbors=int(cfg.get("n_neighbors", 5)),
+            n_estimators=int(cfg.get("n_estimators", 300)),
+        )
+        estimator = full_result.estimator
+    else:
+        estimator = result.estimator
     rows: list[dict[str, Any]] = []
 
     def transformed_value(column: str, position: int) -> float:

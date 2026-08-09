@@ -40,7 +40,7 @@ Solo `.streamlit/secrets.toml.example` debe estar versionado. El archivo real
 
 ## 3. Streamlit Community Cloud
 
-> **Obligatorio:** Laboratorio CAME 1.4.1 se valida y se ejecuta con Python 3.12. El archivo
+> **Obligatorio:** Laboratorio CAME 1.5.0 se valida y se ejecuta con Python 3.12. El archivo
 > `runtime.txt` no sustituye la selección del entorno en Community Cloud. Si el registro muestra
 > otra versión, la aplicación se detiene antes de permitir una construcción histórica.
 

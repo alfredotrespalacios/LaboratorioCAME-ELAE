@@ -23,8 +23,11 @@
 ## Fórmulas explícitas
 
 - Generación no hidráulica (GWh-día) = generación nacional − generación hidráulica.
-- Generación disponible (GWh-día) = CEN (MW) × factor de planta × 24 / 1.000.
-- Margen energético = generación disponible / demanda − 1.
+- Disponibilidad (GWh-día) = CEN (MW) × factor de planta × 24 / 1.000.
+- FP total = suma(CEN × FP) / suma(CEN).
+- Margen energético = disponibilidad / demanda del escenario − 1.
+- Demanda₀(1+g)^n − Disponibilidad = 0.
+- Años hasta margen cero = ln(Disponibilidad/Demanda₀) / ln(1+g).
 - Precio chileno = suma(precio por barra × demanda por barra) / suma(demanda por barra).
 - Ventas sin cobertura (millones COP) = precio (COP/kWh) × generación (GWh).
 
@@ -42,5 +45,5 @@ los valores ausentes quedan como `NaN` visibles.
 - Una falla de conexión, contrato, transformación o escritura bloquea el ZIP. Los bloques correctos
   quedan disponibles para reanudar en la misma instancia de Streamlit.
 - La ausencia explícita de observaciones en una serie complementaria se conserva como advertencia
-  de cobertura y no bloquea por sí sola. Colombia nunca publica el ZIP si faltan demanda nacional,
-  precio de bolsa o generación nacional.
+  de cobertura y no bloquea por sí sola. Colombia consulta y publica únicamente las variables que
+  el usuario conserve seleccionadas; ninguna serie se agrega como obligación oculta.
