@@ -2,10 +2,10 @@
   "schema_version": "2.0",
   "country": "COL",
   "country_name": "Colombia",
-  "created_at_utc": "2026-09-07T22:13:20.338899+00:00",
+  "created_at_utc": "2026-09-07T22:59:31.342003+00:00",
   "first_month": "2000-01-01",
-  "rows": 13308,
-  "series": 105,
+  "rows": 19259,
+  "series": 109,
   "sources": [
     "Banco de la República / datos.gov.co",
     "Cálculo CAME",
@@ -22,12 +22,12 @@
   ],
   "files": {
     "Base_integrada_mensual.parquet": {
-      "sha256": "f2ec14f13e1604df000f8864971996a8fdb120da183db21857f27f8a9d60511a",
-      "bytes": 124303
+      "sha256": "6215eb82ae729695792a67cac32d5e1699fe31a0998e5b09fa282deb59f64eda",
+      "bytes": 176408
     },
     "Catalogo_Base_integrada.xlsx": {
-      "sha256": "c3b3b891366073caec979a2eeea960c1a4a309c0fbe6f56260180e253c9320c7",
-      "bytes": 96363
+      "sha256": "7227f81117b10069c4220f356896f7e45fb09016694b284faf32429c912b9f26",
+      "bytes": 99121
     }
   },
   "last_complete_month": "2026-06-01",
@@ -35,8 +35,8 @@
   "partial_month": null,
   "build_mode": "incremental_checkpoint_152",
   "operation": "Agregar meses y variables faltantes",
-  "requested_start": "2005-01-01",
-  "requested_end": "2009-12-31",
+  "requested_start": "2010-01-01",
+  "requested_end": "2014-12-31",
   "selected_options": [
     "availability",
     "capacity",
@@ -154,6 +154,8 @@
       "col_generacion_empresa_grupo_aes_chivor_total_gwh_mes",
       "col_generacion_empresa_grupo_celsia_hidraulica_gwh_dia",
       "col_generacion_empresa_grupo_celsia_hidraulica_gwh_mes",
+      "col_generacion_empresa_grupo_celsia_otras_gwh_dia",
+      "col_generacion_empresa_grupo_celsia_otras_gwh_mes",
       "col_generacion_empresa_grupo_celsia_termica_gwh_dia",
       "col_generacion_empresa_grupo_celsia_termica_gwh_mes",
       "col_generacion_empresa_grupo_celsia_total_gwh_dia",
@@ -193,6 +195,8 @@
       "col_generacion_no_hidraulica_gwh_dia",
       "col_generacion_recurso_gtpe_gwh_dia",
       "col_generacion_recurso_gtpe_gwh_mes",
+      "col_generacion_recurso_prc3_gwh_dia",
+      "col_generacion_recurso_prc3_gwh_mes",
       "col_generacion_recurso_sncr_gwh_dia",
       "col_generacion_recurso_sncr_gwh_mes",
       "col_generacion_recurso_trm1_gwh_dia",
@@ -231,6 +235,8 @@
       "col_generacion_empresa_grupo_aes_chivor_total_gwh_mes",
       "col_generacion_empresa_grupo_celsia_hidraulica_gwh_dia",
       "col_generacion_empresa_grupo_celsia_hidraulica_gwh_mes",
+      "col_generacion_empresa_grupo_celsia_otras_gwh_dia",
+      "col_generacion_empresa_grupo_celsia_otras_gwh_mes",
       "col_generacion_empresa_grupo_celsia_termica_gwh_dia",
       "col_generacion_empresa_grupo_celsia_termica_gwh_mes",
       "col_generacion_empresa_grupo_celsia_total_gwh_dia",
@@ -270,6 +276,8 @@
       "col_generacion_no_hidraulica_gwh_dia",
       "col_generacion_recurso_gtpe_gwh_dia",
       "col_generacion_recurso_gtpe_gwh_mes",
+      "col_generacion_recurso_prc3_gwh_dia",
+      "col_generacion_recurso_prc3_gwh_mes",
       "col_generacion_recurso_sncr_gwh_dia",
       "col_generacion_recurso_sncr_gwh_mes",
       "col_generacion_recurso_trm1_gwh_dia",
@@ -308,6 +316,8 @@
       "col_generacion_empresa_grupo_aes_chivor_total_gwh_mes",
       "col_generacion_empresa_grupo_celsia_hidraulica_gwh_dia",
       "col_generacion_empresa_grupo_celsia_hidraulica_gwh_mes",
+      "col_generacion_empresa_grupo_celsia_otras_gwh_dia",
+      "col_generacion_empresa_grupo_celsia_otras_gwh_mes",
       "col_generacion_empresa_grupo_celsia_termica_gwh_dia",
       "col_generacion_empresa_grupo_celsia_termica_gwh_mes",
       "col_generacion_empresa_grupo_celsia_total_gwh_dia",
@@ -347,6 +357,8 @@
       "col_generacion_no_hidraulica_gwh_dia",
       "col_generacion_recurso_gtpe_gwh_dia",
       "col_generacion_recurso_gtpe_gwh_mes",
+      "col_generacion_recurso_prc3_gwh_dia",
+      "col_generacion_recurso_prc3_gwh_mes",
       "col_generacion_recurso_sncr_gwh_dia",
       "col_generacion_recurso_sncr_gwh_mes",
       "col_generacion_recurso_trm1_gwh_dia",
@@ -385,6 +397,8 @@
       "col_generacion_empresa_grupo_aes_chivor_total_gwh_mes",
       "col_generacion_empresa_grupo_celsia_hidraulica_gwh_dia",
       "col_generacion_empresa_grupo_celsia_hidraulica_gwh_mes",
+      "col_generacion_empresa_grupo_celsia_otras_gwh_dia",
+      "col_generacion_empresa_grupo_celsia_otras_gwh_mes",
       "col_generacion_empresa_grupo_celsia_termica_gwh_dia",
       "col_generacion_empresa_grupo_celsia_termica_gwh_mes",
       "col_generacion_empresa_grupo_celsia_total_gwh_dia",
@@ -424,6 +438,8 @@
       "col_generacion_no_hidraulica_gwh_dia",
       "col_generacion_recurso_gtpe_gwh_dia",
       "col_generacion_recurso_gtpe_gwh_mes",
+      "col_generacion_recurso_prc3_gwh_dia",
+      "col_generacion_recurso_prc3_gwh_mes",
       "col_generacion_recurso_sncr_gwh_dia",
       "col_generacion_recurso_sncr_gwh_mes",
       "col_generacion_recurso_trm1_gwh_dia",
@@ -480,7 +496,7 @@
   "pending_stages": [],
   "failed_stages": [],
   "run_complete": true,
-  "processed_this_run": 3,
+  "processed_this_run": 1,
   "run_ledger": [
     {
       "ledger_id": "availability:2000-01-01:2004-12-31",
@@ -502,6 +518,17 @@
       "status": "completed",
       "attempts": 1,
       "updated_at_utc": "2026-09-07T22:03:55.525015+00:00",
+      "error": ""
+    },
+    {
+      "ledger_id": "availability:2010-01-01:2014-12-31",
+      "stage_key": "availability",
+      "stage": "Disponibilidad de generación",
+      "period_start": "2010-01-01",
+      "period_end": "2014-12-31",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-07T22:46:49.491485+00:00",
       "error": ""
     },
     {
@@ -527,6 +554,17 @@
       "error": ""
     },
     {
+      "ledger_id": "capacity:2010-01-01:2014-12-31",
+      "stage_key": "capacity",
+      "stage": "Capacidad efectiva neta",
+      "period_start": "2010-01-01",
+      "period_end": "2014-12-31",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-07T22:46:52.469049+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "contract_mc:2000-01-01:2004-12-31",
       "stage_key": "contract_mc",
       "stage": "Índice MC",
@@ -546,6 +584,17 @@
       "status": "completed",
       "attempts": 1,
       "updated_at_utc": "2026-09-07T22:03:54.721512+00:00",
+      "error": ""
+    },
+    {
+      "ledger_id": "contract_mc:2010-01-01:2014-12-31",
+      "stage_key": "contract_mc",
+      "stage": "Índice MC",
+      "period_start": "2010-01-01",
+      "period_end": "2014-12-31",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-07T22:46:48.539789+00:00",
       "error": ""
     },
     {
@@ -582,6 +631,17 @@
       "error": ""
     },
     {
+      "ledger_id": "contract_nonregulated:2010-01-01:2014-12-31",
+      "stage_key": "contract_nonregulated",
+      "stage": "Contratos no regulados",
+      "period_start": "2010-01-01",
+      "period_end": "2014-12-31",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-07T22:46:44.264772+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "contract_regulated:2000-01-01:2000-12-31",
       "stage_key": "contract_regulated",
       "stage": "Contratos regulados",
@@ -615,6 +675,17 @@
       "error": ""
     },
     {
+      "ledger_id": "contract_regulated:2010-01-01:2014-12-31",
+      "stage_key": "contract_regulated",
+      "stage": "Contratos regulados",
+      "period_start": "2010-01-01",
+      "period_end": "2014-12-31",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-07T22:46:43.589987+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "fuel_offers:2000-01-01:2004-12-31",
       "stage_key": "fuel_offers",
       "stage": "Ofertas de gas y carbón",
@@ -634,6 +705,17 @@
       "status": "completed",
       "attempts": 1,
       "updated_at_utc": "2026-09-07T22:03:59.106357+00:00",
+      "error": ""
+    },
+    {
+      "ledger_id": "fuel_offers:2010-01-01:2014-12-31",
+      "stage_key": "fuel_offers",
+      "stage": "Ofertas de gas y carbón",
+      "period_start": "2010-01-01",
+      "period_end": "2014-12-31",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-07T22:46:53.827794+00:00",
       "error": ""
     },
     {
@@ -659,6 +741,17 @@
       "error": ""
     },
     {
+      "ledger_id": "generation:2010-01-01:2014-12-31",
+      "stage_key": "generation",
+      "stage": "Generación nacional, tecnologías, empresas y plantas",
+      "period_start": "2010-01-01",
+      "period_end": "2014-12-31",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-07T22:59:29.347133+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "imports_exports:2000-01-01:2004-12-31",
       "stage_key": "imports_exports",
       "stage": "Importaciones y exportaciones",
@@ -678,6 +771,17 @@
       "status": "completed",
       "attempts": 1,
       "updated_at_utc": "2026-09-07T22:03:56.433526+00:00",
+      "error": ""
+    },
+    {
+      "ledger_id": "imports_exports:2010-01-01:2014-12-31",
+      "stage_key": "imports_exports",
+      "stage": "Importaciones y exportaciones",
+      "period_start": "2010-01-01",
+      "period_end": "2014-12-31",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-07T22:46:50.298629+00:00",
       "error": ""
     },
     {
@@ -703,6 +807,17 @@
       "error": ""
     },
     {
+      "ledger_id": "inflows:2010-01-01:2014-12-31",
+      "stage_key": "inflows",
+      "stage": "Aportes hídricos",
+      "period_start": "2010-01-01",
+      "period_end": "2014-12-31",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-07T22:46:47.553814+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "macro:2000-01-01:2004-12-31",
       "stage_key": "macro",
       "stage": "TRM y ciclo ENSO",
@@ -725,6 +840,17 @@
       "error": ""
     },
     {
+      "ledger_id": "macro:2010-01-01:2014-12-31",
+      "stage_key": "macro",
+      "stage": "TRM y ciclo ENSO",
+      "period_start": "2010-01-01",
+      "period_end": "2014-12-31",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-07T22:46:56.663682+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "market_exposure:2000-01-01:2004-12-31",
       "stage_key": "market_exposure",
       "stage": "Exposición y compras en bolsa",
@@ -744,6 +870,17 @@
       "status": "completed",
       "attempts": 1,
       "updated_at_utc": "2026-09-07T22:03:57.252684+00:00",
+      "error": ""
+    },
+    {
+      "ledger_id": "market_exposure:2010-01-01:2014-12-31",
+      "stage_key": "market_exposure",
+      "stage": "Exposición y compras en bolsa",
+      "period_start": "2010-01-01",
+      "period_end": "2014-12-31",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-07T22:46:51.426898+00:00",
       "error": ""
     },
     {
@@ -780,6 +917,17 @@
       "error": ""
     },
     {
+      "ledger_id": "reservoir:2010-01-01:2014-12-31",
+      "stage_key": "reservoir",
+      "stage": "Volumen útil de embalse",
+      "period_start": "2010-01-01",
+      "period_end": "2014-12-31",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-07T22:46:46.590427+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "restrictions:2000-01-01:2000-12-31",
       "stage_key": "restrictions",
       "stage": "Restricciones",
@@ -810,6 +958,17 @@
       "status": "completed",
       "attempts": 1,
       "updated_at_utc": "2026-09-07T22:03:52.312832+00:00",
+      "error": ""
+    },
+    {
+      "ledger_id": "restrictions:2010-01-01:2014-12-31",
+      "stage_key": "restrictions",
+      "stage": "Restricciones",
+      "period_start": "2010-01-01",
+      "period_end": "2014-12-31",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-07T22:46:45.840187+00:00",
       "error": ""
     },
     {
@@ -846,6 +1005,17 @@
       "error": ""
     },
     {
+      "ledger_id": "scarcity_price:2010-01-01:2014-12-31",
+      "stage_key": "scarcity_price",
+      "stage": "Precio de escasez",
+      "period_start": "2010-01-01",
+      "period_end": "2014-12-31",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-07T22:46:44.998138+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "spot_price:2000-01-01:2000-12-31",
       "stage_key": "spot_price",
       "stage": "Precio de bolsa nacional",
@@ -879,6 +1049,17 @@
       "error": ""
     },
     {
+      "ledger_id": "spot_price:2010-01-01:2014-12-31",
+      "stage_key": "spot_price",
+      "stage": "Precio de bolsa nacional",
+      "period_start": "2010-01-01",
+      "period_end": "2014-12-31",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-07T22:46:42.904570+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "unserved:2000-01-01:2004-12-31",
       "stage_key": "unserved",
       "stage": "Demanda no atendida",
@@ -898,6 +1079,17 @@
       "status": "completed",
       "attempts": 1,
       "updated_at_utc": "2026-09-07T22:05:33.332642+00:00",
+      "error": ""
+    },
+    {
+      "ledger_id": "unserved:2010-01-01:2014-12-31",
+      "stage_key": "unserved",
+      "stage": "Demanda no atendida",
+      "period_start": "2010-01-01",
+      "period_end": "2014-12-31",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-07T22:46:54.925388+00:00",
       "error": ""
     }
   ],
