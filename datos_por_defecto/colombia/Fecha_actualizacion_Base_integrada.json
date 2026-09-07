@@ -1,0 +1,62 @@
+{
+  "schema_version": "2.0",
+  "country": "COL",
+  "country_name": "Colombia",
+  "created_at_utc": "2026-09-07T15:25:50.375267+00:00",
+  "last_complete_month": "2026-06-01",
+  "first_month": "2000-01-01",
+  "rows": 2226,
+  "series": 7,
+  "sources": [
+    "Cálculo CAME",
+    "XM"
+  ],
+  "build_mode": "partial_seed",
+  "selected_options": [
+    "demand"
+  ],
+  "target_options": [
+    "availability",
+    "capacity",
+    "contract_mc",
+    "contract_nonregulated",
+    "contract_regulated",
+    "demand",
+    "enso",
+    "fuel_offers",
+    "generation_companies",
+    "generation_national",
+    "generation_resources",
+    "generation_technology",
+    "imports_exports",
+    "inflows",
+    "market_exposure",
+    "reservoir",
+    "restrictions",
+    "scarcity_price",
+    "spot_price",
+    "trm",
+    "unserved"
+  ],
+  "option_series": {
+    "demand": [
+      "col_demanda_gwh_dia",
+      "col_demanda_gwh_mes"
+    ]
+  },
+  "notes": [
+    "Operación: Construir la primera base.",
+    "La asociación recurso–empresa se conserva por mes; el catálogo documenta los cambios observados y las empresas involucradas.",
+    "Variables seleccionadas: demand."
+  ],
+  "files": {
+    "Base_integrada_mensual.parquet": {
+      "sha256": "5ae9ec29213af15940fc65004f05c1798b469f82a877364e534eb251cc14f49e",
+      "bytes": 21412
+    },
+    "Catalogo_Base_integrada.xlsx": {
+      "sha256": "8746198442422afdf322c12c84b7a32b18c27fb0d45ceae6767462cea9d2a578",
+      "bytes": 12651
+    }
+  }
+}
