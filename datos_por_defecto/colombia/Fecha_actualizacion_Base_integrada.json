@@ -2,9 +2,9 @@
   "schema_version": "2.0",
   "country": "COL",
   "country_name": "Colombia",
-  "created_at_utc": "2026-09-08T00:55:45.863923+00:00",
+  "created_at_utc": "2026-09-08T01:21:27.205400+00:00",
   "first_month": "2000-01-01",
-  "rows": 31932,
+  "rows": 34066,
   "series": 133,
   "sources": [
     "Banco de la República / datos.gov.co",
@@ -22,12 +22,12 @@
   ],
   "files": {
     "Base_integrada_mensual.parquet": {
-      "sha256": "d7bb9d6a52908ba3c9eae9ba84e8a082d7c46898391446e0087dff7d5b66d132",
-      "bytes": 292036
+      "sha256": "25ce1a5eb2b3e07b8cddf5e5ff596a728b7c36620ec3a0737d16c167f4bc50d5",
+      "bytes": 311833
     },
     "Catalogo_Base_integrada.xlsx": {
-      "sha256": "17221fa348dd255fdf4e6371df598f98a26454c986f9b46ec3dfc575410795c9",
-      "bytes": 110527
+      "sha256": "95ed4739d21bedc365aefb5717f7098c76818b32149485dc766579808a8196ed",
+      "bytes": 74705
     }
   },
   "last_complete_month": "2026-06-01",
@@ -35,8 +35,8 @@
   "partial_month": null,
   "build_mode": "incremental_checkpoint_152",
   "operation": "Agregar meses y variables faltantes",
-  "requested_start": "2020-01-01",
-  "requested_end": "2024-12-31",
+  "requested_start": "2025-01-01",
+  "requested_end": "2026-06-30",
   "selected_options": [
     "availability",
     "capacity",
@@ -650,6 +650,17 @@
       "error": ""
     },
     {
+      "ledger_id": "availability:2025-01-01:2026-06-30",
+      "stage_key": "availability",
+      "stage": "Disponibilidad de generación",
+      "period_start": "2025-01-01",
+      "period_end": "2026-06-30",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-08T01:16:40.538952+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "capacity:2000-01-01:2004-12-31",
       "stage_key": "capacity",
       "stage": "Capacidad efectiva neta",
@@ -705,6 +716,17 @@
       "error": ""
     },
     {
+      "ledger_id": "capacity:2025-01-01:2026-06-30",
+      "stage_key": "capacity",
+      "stage": "Capacidad efectiva neta",
+      "period_start": "2025-01-01",
+      "period_end": "2026-06-30",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-08T01:16:44.745783+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "contract_mc:2000-01-01:2004-12-31",
       "stage_key": "contract_mc",
       "stage": "Índice MC",
@@ -757,6 +779,17 @@
       "status": "completed",
       "attempts": 1,
       "updated_at_utc": "2026-09-08T00:54:20.966994+00:00",
+      "error": ""
+    },
+    {
+      "ledger_id": "contract_mc:2025-01-01:2026-06-30",
+      "stage_key": "contract_mc",
+      "stage": "Índice MC",
+      "period_start": "2025-01-01",
+      "period_end": "2026-06-30",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-08T01:16:39.338479+00:00",
       "error": ""
     },
     {
@@ -826,6 +859,17 @@
       "error": ""
     },
     {
+      "ledger_id": "contract_nonregulated:2025-01-01:2026-06-30",
+      "stage_key": "contract_nonregulated",
+      "stage": "Contratos no regulados",
+      "period_start": "2025-01-01",
+      "period_end": "2026-06-30",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-08T01:16:34.284494+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "contract_regulated:2000-01-01:2000-12-31",
       "stage_key": "contract_regulated",
       "stage": "Contratos regulados",
@@ -892,6 +936,17 @@
       "error": ""
     },
     {
+      "ledger_id": "contract_regulated:2025-01-01:2026-06-30",
+      "stage_key": "contract_regulated",
+      "stage": "Contratos regulados",
+      "period_start": "2025-01-01",
+      "period_end": "2026-06-30",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-08T01:16:33.394460+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "fuel_offers:2000-01-01:2004-12-31",
       "stage_key": "fuel_offers",
       "stage": "Ofertas de gas y carbón",
@@ -944,6 +999,17 @@
       "status": "completed",
       "attempts": 1,
       "updated_at_utc": "2026-09-08T00:54:27.383493+00:00",
+      "error": ""
+    },
+    {
+      "ledger_id": "fuel_offers:2025-01-01:2026-06-30",
+      "stage_key": "fuel_offers",
+      "stage": "Ofertas de gas y carbón",
+      "period_start": "2025-01-01",
+      "period_end": "2026-06-30",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-08T01:16:46.213674+00:00",
       "error": ""
     },
     {
@@ -1002,6 +1068,17 @@
       "error": ""
     },
     {
+      "ledger_id": "generation:2025-01-01:2026-06-30",
+      "stage_key": "generation",
+      "stage": "Generación nacional, tecnologías, empresas y plantas",
+      "period_start": "2025-01-01",
+      "period_end": "2026-06-30",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-08T01:21:25.353631+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "imports_exports:2000-01-01:2004-12-31",
       "stage_key": "imports_exports",
       "stage": "Importaciones y exportaciones",
@@ -1054,6 +1131,17 @@
       "status": "completed",
       "attempts": 1,
       "updated_at_utc": "2026-09-08T00:54:23.382590+00:00",
+      "error": ""
+    },
+    {
+      "ledger_id": "imports_exports:2025-01-01:2026-06-30",
+      "stage_key": "imports_exports",
+      "stage": "Importaciones y exportaciones",
+      "period_start": "2025-01-01",
+      "period_end": "2026-06-30",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-08T01:16:41.841667+00:00",
       "error": ""
     },
     {
@@ -1112,6 +1200,17 @@
       "error": ""
     },
     {
+      "ledger_id": "inflows:2025-01-01:2026-06-30",
+      "stage_key": "inflows",
+      "stage": "Aportes hídricos",
+      "period_start": "2025-01-01",
+      "period_end": "2026-06-30",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-08T01:16:38.027239+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "macro:2000-01-01:2004-12-31",
       "stage_key": "macro",
       "stage": "TRM y ciclo ENSO",
@@ -1167,6 +1266,17 @@
       "error": ""
     },
     {
+      "ledger_id": "macro:2025-01-01:2026-06-30",
+      "stage_key": "macro",
+      "stage": "TRM y ciclo ENSO",
+      "period_start": "2025-01-01",
+      "period_end": "2026-06-30",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-08T01:16:49.612323+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "market_exposure:2000-01-01:2004-12-31",
       "stage_key": "market_exposure",
       "stage": "Exposición y compras en bolsa",
@@ -1219,6 +1329,17 @@
       "status": "completed",
       "attempts": 1,
       "updated_at_utc": "2026-09-08T00:54:24.620332+00:00",
+      "error": ""
+    },
+    {
+      "ledger_id": "market_exposure:2025-01-01:2026-06-30",
+      "stage_key": "market_exposure",
+      "stage": "Exposición y compras en bolsa",
+      "period_start": "2025-01-01",
+      "period_end": "2026-06-30",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-08T01:16:43.221152+00:00",
       "error": ""
     },
     {
@@ -1288,6 +1409,17 @@
       "error": ""
     },
     {
+      "ledger_id": "reservoir:2025-01-01:2026-06-30",
+      "stage_key": "reservoir",
+      "stage": "Volumen útil de embalse",
+      "period_start": "2025-01-01",
+      "period_end": "2026-06-30",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-08T01:16:36.859642+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "restrictions:2000-01-01:2000-12-31",
       "stage_key": "restrictions",
       "stage": "Restricciones",
@@ -1351,6 +1483,17 @@
       "status": "completed",
       "attempts": 1,
       "updated_at_utc": "2026-09-08T00:54:17.791418+00:00",
+      "error": ""
+    },
+    {
+      "ledger_id": "restrictions:2025-01-01:2026-06-30",
+      "stage_key": "restrictions",
+      "stage": "Restricciones",
+      "period_start": "2025-01-01",
+      "period_end": "2026-06-30",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-08T01:16:35.961333+00:00",
       "error": ""
     },
     {
@@ -1420,6 +1563,17 @@
       "error": ""
     },
     {
+      "ledger_id": "scarcity_price:2025-01-01:2026-06-30",
+      "stage_key": "scarcity_price",
+      "stage": "Precio de escasez",
+      "period_start": "2025-01-01",
+      "period_end": "2026-06-30",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-08T01:16:35.109353+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "spot_price:2000-01-01:2000-12-31",
       "stage_key": "spot_price",
       "stage": "Precio de bolsa nacional",
@@ -1486,6 +1640,17 @@
       "error": ""
     },
     {
+      "ledger_id": "spot_price:2025-01-01:2026-06-30",
+      "stage_key": "spot_price",
+      "stage": "Precio de bolsa nacional",
+      "period_start": "2025-01-01",
+      "period_end": "2026-06-30",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-08T01:16:32.596681+00:00",
+      "error": ""
+    },
+    {
       "ledger_id": "unserved:2000-01-01:2004-12-31",
       "stage_key": "unserved",
       "stage": "Demanda no atendida",
@@ -1538,6 +1703,17 @@
       "status": "completed",
       "attempts": 1,
       "updated_at_utc": "2026-09-08T00:54:28.646723+00:00",
+      "error": ""
+    },
+    {
+      "ledger_id": "unserved:2025-01-01:2026-06-30",
+      "stage_key": "unserved",
+      "stage": "Demanda no atendida",
+      "period_start": "2025-01-01",
+      "period_end": "2026-06-30",
+      "status": "completed",
+      "attempts": 1,
+      "updated_at_utc": "2026-09-08T01:16:47.676288+00:00",
       "error": ""
     }
   ],
